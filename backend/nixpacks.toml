@@ -5,4 +5,4 @@ nixPkgs = ["python311", "postgresql"]
 cmds = ["pip install -r requirements.txt"]
 
 [start]
-cmd = "python manage.py migrate && gunicorn codex.wsgi:application --bind 0.0.0.0:$PORT"
+cmd = "python manage.py migrate && echo 'Starting gunicorn on port' $PORT && exec gunicorn codex.wsgi:application --bind 0.0.0.0:$PORT --access-logfile - --error-logfile - --log-level info"
