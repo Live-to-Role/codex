@@ -14,7 +14,6 @@ django-allauth>=0.60,<1.0
 dj-rest-auth>=5.0,<6.0
 
 # Search and fuzzy matching
-django-postgres-fts>=0.1,<1.0
 rapidfuzz>=3.6,<4.0
 
 # Utilities
