@@ -24,4 +24,4 @@ COPY . .
 RUN python manage.py collectstatic --noinput || true
 
 # Run migrations and start server
-CMD sh -c "python manage.py migrate && gunicorn codex.wsgi:application --bind 0.0.0.0:\$PORT"
+CMD sh -c "python manage.py migrate && echo 'Starting gunicorn on port' \$PORT && exec gunicorn codex.wsgi:application --bind 0.0.0.0:\$PORT --access-logfile - --error-logfile - --log-level info"
