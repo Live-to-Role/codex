@@ -28,6 +28,11 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.sites",
     "django.contrib.postgres",
+    # Local apps (users must come before allauth)
+    "apps.users",
+    "apps.core",
+    "apps.catalog",
+    "apps.api",
     # Third-party apps
     "rest_framework",
     "rest_framework.authtoken",
@@ -39,11 +44,6 @@ INSTALLED_APPS = [
     "allauth.socialaccount",
     "dj_rest_auth",
     "dj_rest_auth.registration",
-    # Local apps
-    "apps.core",
-    "apps.catalog",
-    "apps.api",
-    "apps.users",
 ]
 
 MIDDLEWARE = [
