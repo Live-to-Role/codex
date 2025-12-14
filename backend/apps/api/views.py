@@ -506,7 +506,7 @@ class ProductSeriesViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet for product series."""
 
     queryset = ProductSeries.objects.select_related("publisher").annotate(
-        product_count=models.Count("products")
+        product_count=Count("products")
     )
     permission_classes = [AllowAny]
     lookup_field = "slug"
