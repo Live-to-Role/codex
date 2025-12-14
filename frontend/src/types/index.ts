@@ -182,3 +182,26 @@ export interface RegisterData {
   password1: string;
   password2: string;
 }
+
+export interface Revision {
+  id: string;
+  product: Product;
+  user?: UserPublic;
+  changes: Record<string, unknown>;
+  comment: string;
+  created_at: string;
+}
+
+export interface Contribution {
+  id: string;
+  product?: Product;
+  user?: UserPublic;
+  data: Record<string, unknown>;
+  file_hash: string;
+  source: "web" | "grimoire" | "api";
+  status: "pending" | "approved" | "rejected";
+  reviewed_by?: UserPublic;
+  review_notes: string;
+  reviewed_at?: string;
+  created_at: string;
+}

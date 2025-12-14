@@ -2,12 +2,15 @@ from rest_framework import serializers
 
 from apps.catalog.models import (
     Author,
+    Comment,
     Contribution,
     FileHash,
     GameSystem,
     Product,
     ProductCredit,
+    ProductImage,
     ProductRelation,
+    ProductSeries,
     Publisher,
     Revision,
 )
@@ -322,6 +325,27 @@ class ContributionCreateSerializer(serializers.ModelSerializer):
         fields = ["product", "data", "file_hash", "source"]
 
 
+class FileHashCreateSerializer(serializers.ModelSerializer):
+    """Serializer for registering new file hashes."""
+
+    class Meta:
+        model = FileHash
+        fields = ["hash_sha256", "hash_md5", "file_size_bytes", "file_name"]
+
+    def validate_hash_sha256(self, value):
+        value = value.lower().strip()
+        if len(value) != 64:
+            raise serializers.ValidationError("SHA-256 hash must be 64 characters.")
+        if FileHash.objects.filter(hash_sha256=value).exists():
+            raise serializers.ValidationError("This file hash is already registered.")
+        return value
+
+    def validate_hash_md5(self, value):
+        if value:
+            return value.lower().strip()
+        return value
+
+
 class IdentifyRequestSerializer(serializers.Serializer):
     """Serializer for /identify endpoint request."""
 
@@ -344,3 +368,105 @@ class IdentifyResponseSerializer(serializers.Serializer):
     confidence = serializers.FloatField()
     product = ProductDetailSerializer(allow_null=True)
     suggestions = ProductListSerializer(many=True)
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    """Serializer for comments."""
+
+    user = UserPublicSerializer(read_only=True)
+    replies = serializers.SerializerMethodField()
+    reply_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Comment
+        fields = [
+            "id",
+            "product",
+            "user",
+            "parent",
+            "content",
+            "is_edited",
+            "is_deleted",
+            "replies",
+            "reply_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "user", "is_edited", "is_deleted", "created_at", "updated_at"]
+
+    def get_replies(self, obj):
+        if obj.replies.exists():
+            return CommentSerializer(obj.replies.filter(is_deleted=False), many=True).data
+        return []
+
+    def get_reply_count(self, obj):
+        return obj.replies.filter(is_deleted=False).count()
+
+
+class CommentCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating comments."""
+
+    class Meta:
+        model = Comment
+        fields = ["product", "parent", "content"]
+
+
+class ProductImageSerializer(serializers.ModelSerializer):
+    """Serializer for product images."""
+
+    uploaded_by = UserPublicSerializer(read_only=True)
+    image_type_display = serializers.CharField(source="get_image_type_display", read_only=True)
+
+    class Meta:
+        model = ProductImage
+        fields = [
+            "id",
+            "product",
+            "image_type",
+            "image_type_display",
+            "url",
+            "width",
+            "height",
+            "file_size",
+            "alt_text",
+            "uploaded_by",
+            "created_at",
+        ]
+        read_only_fields = ["id", "uploaded_by", "created_at"]
+
+
+class ProductSeriesListSerializer(serializers.ModelSerializer):
+    """Serializer for series list views."""
+
+    product_count = serializers.IntegerField(read_only=True)
+    publisher_name = serializers.CharField(source="publisher.name", read_only=True)
+
+    class Meta:
+        model = ProductSeries
+        fields = ["id", "name", "slug", "description", "publisher_name", "product_count"]
+
+
+class ProductSeriesDetailSerializer(serializers.ModelSerializer):
+    """Serializer for series detail views."""
+
+    publisher = PublisherListSerializer(read_only=True)
+    products = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductSeries
+        fields = ["id", "name", "slug", "description", "publisher", "products", "created_at"]
+
+    def get_products(self, obj):
+        products = obj.products.all().order_by("series_order", "title")
+        return ProductListSerializer(products, many=True).data
+
+
+class ProductRelationSerializer(serializers.ModelSerializer):
+    """Serializer for product relations."""
+
+    to_product = ProductListSerializer(read_only=True)
+    relation_type_display = serializers.CharField(source="get_relation_type_display", read_only=True)
+
+    class Meta:
+        model = ProductRelation
+        fields = ["id", "to_product", "relation_type", "relation_type_display", "notes"]

@@ -1,5 +1,6 @@
 import apiClient from "./client";
 import type { GameSystem, Product, PaginatedResponse } from "@/types";
+import { getMockSystems, getMockSystem, mockProducts } from "./mockData";
 
 export interface SystemFilters {
   page?: number;
@@ -11,28 +12,42 @@ export interface SystemFilters {
 export async function getSystems(
   filters: SystemFilters = {}
 ): Promise<PaginatedResponse<GameSystem>> {
-  const params = new URLSearchParams();
+  try {
+    const params = new URLSearchParams();
 
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      params.append(key, String(value));
-    }
-  });
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        params.append(key, String(value));
+      }
+    });
 
-  const response = await apiClient.get<PaginatedResponse<GameSystem>>(
-    `/systems/?${params.toString()}`
-  );
-  return response.data;
+    const response = await apiClient.get<PaginatedResponse<GameSystem>>(
+      `/systems/?${params.toString()}`
+    );
+    return response.data;
+  } catch {
+    return getMockSystems();
+  }
 }
 
 export async function getSystem(slug: string): Promise<GameSystem> {
-  const response = await apiClient.get<GameSystem>(`/systems/${slug}/`);
-  return response.data;
+  try {
+    const response = await apiClient.get<GameSystem>(`/systems/${slug}/`);
+    return response.data;
+  } catch {
+    const mockSystem = getMockSystem(slug);
+    if (mockSystem) return mockSystem;
+    throw new Error("System not found");
+  }
 }
 
 export async function getSystemProducts(slug: string): Promise<Product[]> {
-  const response = await apiClient.get<Product[]>(`/systems/${slug}/products/`);
-  return response.data;
+  try {
+    const response = await apiClient.get<Product[]>(`/systems/${slug}/products/`);
+    return response.data;
+  } catch {
+    return mockProducts.filter((p) => p.game_system?.slug === slug);
+  }
 }
 
 export async function createSystem(

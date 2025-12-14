@@ -206,6 +206,19 @@ class Product(models.Model):
     cover_url = models.URLField(blank=True)
     thumbnail_url = models.URLField(blank=True)
 
+    series = models.ForeignKey(
+        "ProductSeries",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="products",
+    )
+    series_order = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Order within the series (1, 2, 3...)",
+    )
+
     status = models.CharField(
         max_length=20,
         choices=ProductStatus.choices,
@@ -462,3 +475,126 @@ class Contribution(models.Model):
         if self.product:
             return f"Edit to {self.product.title} by {self.user}"
         return f"New product contribution by {self.user}"
+
+
+class ProductImage(models.Model):
+    """Cover images and other product images."""
+
+    class ImageType(models.TextChoices):
+        COVER = "cover", "Cover"
+        THUMBNAIL = "thumbnail", "Thumbnail"
+        PREVIEW = "preview", "Preview Page"
+        OTHER = "other", "Other"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="images",
+    )
+    image_type = models.CharField(
+        max_length=20,
+        choices=ImageType.choices,
+        default=ImageType.COVER,
+    )
+    url = models.URLField(help_text="URL to the hosted image")
+    width = models.PositiveIntegerField(null=True, blank=True)
+    height = models.PositiveIntegerField(null=True, blank=True)
+    file_size = models.PositiveIntegerField(null=True, blank=True, help_text="Size in bytes")
+    alt_text = models.CharField(max_length=255, blank=True)
+
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uploaded_images",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["image_type", "created_at"]
+        verbose_name = "product image"
+        verbose_name_plural = "product images"
+
+    def __str__(self):
+        return f"{self.get_image_type_display()} for {self.product.title}"
+
+
+class ProductSeries(models.Model):
+    """A series or product line grouping related products."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=255, unique=True, blank=True)
+    description = models.TextField(blank=True)
+    publisher = models.ForeignKey(
+        Publisher,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="series",
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_series",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "product series"
+        verbose_name_plural = "product series"
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+
+class Comment(models.Model):
+    """User comments/discussion on products."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="comments",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="comments",
+    )
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="replies",
+        help_text="Parent comment for threaded replies",
+    )
+    content = models.TextField()
+    is_edited = models.BooleanField(default=False)
+    is_deleted = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        verbose_name = "comment"
+        verbose_name_plural = "comments"
+
+    def __str__(self):
+        return f"Comment by {self.user} on {self.product.title}"

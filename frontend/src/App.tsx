@@ -12,6 +12,14 @@ import { SearchPage } from "./pages/SearchPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { ProfilePage } from "./pages/ProfilePage";
+import { AuthorDetailPage } from "./pages/AuthorDetailPage";
+import { ProductEditPage } from "./pages/ProductEditPage";
+import { ModerationPage } from "./pages/ModerationPage";
+import { LeaderboardPage } from "./pages/LeaderboardPage";
+import { SeriesPage } from "./pages/SeriesPage";
+import { SeriesDetailPage } from "./pages/SeriesDetailPage";
+import { PublisherDashboardPage } from "./pages/PublisherDashboardPage";
 
 export default function App() {
   return (
@@ -20,6 +28,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/products/:slug" element={<ProductDetailPage />} />
+        <Route path="/products/:slug/edit" element={<ProductEditPage />} />
         <Route path="/publishers" element={<PublishersPage />} />
         <Route path="/publishers/:slug" element={<PublisherDetailPage />} />
         <Route path="/systems" element={<SystemsPage />} />
@@ -27,6 +36,13 @@ export default function App() {
         <Route path="/search" element={<SearchPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/authors/:slug" element={<AuthorDetailPage />} />
+        <Route path="/moderation" element={<ModerationPage />} />
+        <Route path="/leaderboard" element={<LeaderboardPage />} />
+        <Route path="/series" element={<SeriesPage />} />
+        <Route path="/series/:slug" element={<SeriesDetailPage />} />
+        <Route path="/dashboard" element={<PublisherDashboardPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Layout>

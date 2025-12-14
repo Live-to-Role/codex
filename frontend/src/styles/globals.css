@@ -3,30 +3,37 @@
 @tailwind utilities;
 
 :root {
-  --primary-50: #f5f3ff;
-  --primary-100: #ede9fe;
-  --primary-500: #8b5cf6;
-  --primary-600: #7c3aed;
-  --primary-700: #6d28d9;
+  --codex-olive: #73704C;
+  --codex-brown: #595348;
+  --codex-tan: #D9D3C7;
+  --codex-cream: #F2F2F2;
+  --codex-dark: #402708;
+  --codex-ink: #332514;
 
-  --neutral-50: #fafaf9;
-  --neutral-100: #f5f5f4;
-  --neutral-200: #e7e5e4;
-  --neutral-800: #292524;
-  --neutral-900: #1c1917;
-
-  --accent-400: #fbbf24;
-  --accent-500: #f59e0b;
+  --primary-50: #FAF9F7;
+  --primary-100: #F2F0EB;
+  --primary-200: #E5E2D9;
+  --primary-300: #D9D3C7;
+  --primary-400: #A8A28A;
+  --primary-500: #73704C;
+  --primary-600: #595348;
+  --primary-700: #474236;
+  --primary-800: #332514;
+  --primary-900: #241A0E;
 }
 
 @layer base {
   html {
     @apply antialiased;
+    scroll-behavior: smooth;
   }
 
   body {
-    @apply bg-neutral-50 text-neutral-900;
+    @apply bg-primary-100 text-primary-800;
     @apply min-h-screen;
+    @apply font-serif;
+    background-image: 
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
   }
 
   h1,
@@ -35,7 +42,8 @@
   h4,
   h5,
   h6 {
-    @apply font-semibold tracking-tight;
+    @apply font-display font-semibold tracking-wide;
+    @apply text-primary-800;
   }
 
   h1 {
@@ -51,77 +59,121 @@
   }
 
   a {
-    @apply text-primary-600 hover:text-primary-700 transition-colors;
+    @apply text-codex-dark hover:text-codex-olive transition-colors;
+  }
+
+  ::selection {
+    @apply bg-codex-olive/30 text-codex-ink;
   }
 }
 
 @layer components {
   .btn {
     @apply inline-flex items-center justify-center gap-2;
-    @apply px-4 py-2 rounded-lg font-medium;
+    @apply px-5 py-2.5 font-medium;
     @apply transition-all duration-200;
     @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
     @apply disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply border border-transparent;
+    border-radius: 2px;
   }
 
   .btn-primary {
-    @apply btn bg-primary-600 text-white;
-    @apply hover:bg-primary-700;
-    @apply focus:ring-primary-500;
+    @apply btn bg-codex-dark text-codex-cream;
+    @apply hover:bg-codex-ink;
+    @apply focus:ring-codex-olive;
+    @apply border-codex-ink;
   }
 
   .btn-secondary {
-    @apply btn bg-neutral-200 text-neutral-900;
-    @apply hover:bg-neutral-300;
-    @apply focus:ring-neutral-400;
+    @apply btn bg-codex-tan text-codex-ink;
+    @apply hover:bg-codex-cream;
+    @apply focus:ring-codex-olive;
+    @apply border-codex-brown/30;
   }
 
   .btn-ghost {
-    @apply btn bg-transparent text-neutral-700;
-    @apply hover:bg-neutral-100;
-    @apply focus:ring-neutral-400;
+    @apply btn bg-transparent text-codex-brown;
+    @apply hover:bg-codex-tan/50;
+    @apply focus:ring-codex-olive;
   }
 
   .input {
-    @apply w-full px-4 py-2 rounded-lg border border-neutral-300;
-    @apply bg-white text-neutral-900;
-    @apply placeholder:text-neutral-400;
-    @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply w-full px-4 py-2.5 border border-codex-brown/30;
+    @apply bg-codex-cream text-codex-ink;
+    @apply placeholder:text-codex-brown/60;
+    @apply focus:outline-none focus:ring-2 focus:ring-codex-olive/50 focus:border-codex-olive;
     @apply transition-all duration-200;
+    border-radius: 2px;
   }
 
   .input-error {
-    @apply border-red-500 focus:ring-red-500;
+    @apply border-red-700 focus:ring-red-700/50;
   }
 
   .card {
-    @apply bg-white rounded-xl border border-neutral-200;
-    @apply shadow-sm;
+    @apply bg-codex-cream border border-codex-tan;
+    @apply shadow-tome;
+    border-radius: 2px;
+  }
+
+  .card:hover {
+    @apply shadow-tome-lg;
   }
 
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    @apply inline-flex items-center px-2.5 py-0.5 text-xs font-medium;
+    @apply border;
+    border-radius: 2px;
   }
 
   .badge-primary {
-    @apply badge bg-primary-100 text-primary-700;
+    @apply badge bg-codex-olive/20 text-codex-olive border-codex-olive/30;
   }
 
   .badge-secondary {
-    @apply badge bg-neutral-100 text-neutral-700;
+    @apply badge bg-codex-tan text-codex-brown border-codex-brown/20;
   }
 
   .badge-success {
-    @apply badge bg-green-100 text-green-700;
+    @apply badge bg-green-900/10 text-green-900 border-green-900/20;
   }
 
   .badge-warning {
-    @apply badge bg-amber-100 text-amber-700;
+    @apply badge bg-amber-900/10 text-amber-900 border-amber-900/20;
+  }
+
+  .divider {
+    @apply border-t border-codex-brown/20;
+    background-image: linear-gradient(90deg, transparent, var(--codex-brown), transparent);
+    background-size: 100% 1px;
+    background-position: center;
+    background-repeat: no-repeat;
+    border: none;
+    height: 1px;
+  }
+
+  .section-ornament {
+    @apply text-codex-olive/40 text-center;
+    font-family: serif;
+    letter-spacing: 0.5em;
+  }
+
+  .parchment-bg {
+    @apply bg-codex-cream;
+    background-image: 
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
   }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  .ornament::before,
+  .ornament::after {
+    content: "❧";
+    @apply mx-3 text-codex-olive/40;
   }
 }

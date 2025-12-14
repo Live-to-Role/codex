@@ -1,6 +1,6 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Users, ExternalLink, BookOpen, ChevronRight } from "lucide-react";
+import { Users, ExternalLink, BookOpen, ChevronRight, BadgeCheck, Loader2 } from "lucide-react";
 import { getPublisher, getPublisherProducts } from "@/api/publishers";
 
 export function PublisherDetailPage() {
@@ -21,9 +21,8 @@ export function PublisherDetailPage() {
   if (isLoading) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-neutral-200 rounded w-1/3 mb-4" />
-          <div className="h-4 bg-neutral-200 rounded w-1/2" />
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-codex-olive" />
         </div>
       </div>
     );
@@ -32,8 +31,8 @@ export function PublisherDetailPage() {
   if (!publisher) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
-        <Users className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Publisher Not Found</h2>
+        <Users className="w-12 h-12 text-codex-brown/40 mx-auto mb-4" />
+        <h2 className="font-display text-xl font-semibold text-codex-ink mb-2">Publisher Not Found</h2>
         <Link to="/publishers" className="btn-primary">Browse Publishers</Link>
       </div>
     );
@@ -41,48 +40,58 @@ export function PublisherDetailPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <nav className="flex items-center gap-2 text-sm text-neutral-500 mb-6">
-        <Link to="/publishers" className="hover:text-neutral-700">Publishers</Link>
+      <nav className="flex items-center gap-2 text-sm text-codex-brown/70 mb-6">
+        <Link to="/publishers" className="hover:text-codex-ink">Publishers</Link>
         <ChevronRight className="w-4 h-4" />
-        <span className="text-neutral-900">{publisher.name}</span>
+        <span className="text-codex-ink">{publisher.name}</span>
       </nav>
 
-      <div className="flex items-start gap-6 mb-8">
-        {publisher.logo_url ? (
-          <img src={publisher.logo_url} alt={publisher.name} className="w-24 h-24 rounded-lg object-cover" />
-        ) : (
-          <div className="w-24 h-24 bg-neutral-200 rounded-lg flex items-center justify-center">
-            <Users className="w-12 h-12 text-neutral-400" />
-          </div>
-        )}
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <h1 className="text-3xl font-bold text-neutral-900">{publisher.name}</h1>
-            {publisher.is_verified && <span className="badge-success">Verified</span>}
-          </div>
-          {publisher.website && (
-            <a href={publisher.website} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-700 inline-flex items-center gap-1">
-              {publisher.website} <ExternalLink className="w-4 h-4" />
-            </a>
+      <div className="card p-6 mb-8">
+        <div className="flex items-start gap-6">
+          {publisher.logo_url ? (
+            <img src={publisher.logo_url} alt={publisher.name} className="w-24 h-24 object-cover border border-codex-brown/20" style={{ borderRadius: '2px' }} />
+          ) : (
+            <div className="w-24 h-24 bg-codex-tan flex items-center justify-center border border-codex-brown/20" style={{ borderRadius: '2px' }}>
+              <Users className="w-12 h-12 text-codex-brown/40" />
+            </div>
           )}
-          {publisher.description && <p className="text-neutral-600 mt-4">{publisher.description}</p>}
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="font-display text-3xl font-semibold text-codex-ink tracking-wide">{publisher.name}</h1>
+              {publisher.is_verified && (
+                <span className="badge-success flex items-center gap-1">
+                  <BadgeCheck className="w-3.5 h-3.5" />
+                  Verified Publisher
+                </span>
+              )}
+            </div>
+            {publisher.website && (
+              <a href={publisher.website} target="_blank" rel="noopener noreferrer" className="text-codex-dark hover:text-codex-olive inline-flex items-center gap-1">
+                {publisher.website} <ExternalLink className="w-4 h-4" />
+              </a>
+            )}
+            {publisher.description && <p className="text-codex-brown/70 mt-4 leading-relaxed">{publisher.description}</p>}
+            {publisher.founded_year && (
+              <p className="text-sm text-codex-brown/50 mt-2">Founded {publisher.founded_year}</p>
+            )}
+          </div>
         </div>
       </div>
 
       <div>
-        <h2 className="text-xl font-semibold mb-4">Products ({products?.length || 0})</h2>
+        <h2 className="font-display text-xl font-semibold text-codex-ink mb-4 tracking-wide">Products ({products?.length || 0})</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {products?.map((product) => (
-            <Link key={product.id} to={`/products/${product.slug}`} className="card overflow-hidden hover:shadow-md transition-shadow group">
-              <div className="aspect-[3/4] bg-neutral-200">
+            <Link key={product.id} to={`/products/${product.slug}`} className="card overflow-hidden hover:border-codex-olive/50 transition-colors group">
+              <div className="aspect-[3/4] bg-codex-tan">
                 {product.thumbnail_url || product.cover_url ? (
                   <img src={product.thumbnail_url || product.cover_url} alt={product.title} className="w-full h-full object-cover" loading="lazy" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center"><BookOpen className="w-8 h-8 text-neutral-400" /></div>
+                  <div className="w-full h-full flex items-center justify-center"><BookOpen className="w-8 h-8 text-codex-brown/30" /></div>
                 )}
               </div>
               <div className="p-2">
-                <h3 className="text-sm font-medium line-clamp-2 group-hover:text-primary-600">{product.title}</h3>
+                <h3 className="text-sm font-medium text-codex-ink line-clamp-2 group-hover:text-codex-olive">{product.title}</h3>
               </div>
             </Link>
           ))}

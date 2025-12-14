@@ -7,6 +7,7 @@ from .views import (
     GameSystemViewSet,
     HealthView,
     IdentifyView,
+    ProductSeriesViewSet,
     ProductViewSet,
     PublisherViewSet,
     SearchView,
@@ -17,6 +18,7 @@ router.register(r"publishers", PublisherViewSet)
 router.register(r"authors", AuthorViewSet)
 router.register(r"systems", GameSystemViewSet)
 router.register(r"products", ProductViewSet)
+router.register(r"series", ProductSeriesViewSet)
 router.register(r"contributions", ContributionViewSet)
 
 urlpatterns = [

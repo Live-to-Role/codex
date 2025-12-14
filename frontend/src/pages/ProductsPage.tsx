@@ -55,31 +55,31 @@ export function ProductsPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-neutral-900">Products</h1>
-          <p className="text-neutral-500 mt-1">
-            {data?.count?.toLocaleString() || 0} products in the database
+          <h1 className="font-display text-3xl font-semibold text-codex-ink tracking-wide">Products</h1>
+          <p className="text-codex-brown/70 mt-1">
+            {data?.count?.toLocaleString() || 0} tomes in the archives
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`btn-ghost ${showFilters ? "bg-neutral-100" : ""}`}
+            className={`btn-ghost ${showFilters ? "bg-codex-tan/50" : ""}`}
           >
             <Filter className="w-4 h-4" />
             Filters
           </button>
-          <div className="flex border border-neutral-200 rounded-lg overflow-hidden">
+          <div className="flex border border-codex-brown/20 overflow-hidden" style={{ borderRadius: '2px' }}>
             <button
               onClick={() => setViewMode("grid")}
-              className={`p-2 ${viewMode === "grid" ? "bg-neutral-100" : "hover:bg-neutral-50"}`}
+              className={`p-2 ${viewMode === "grid" ? "bg-codex-tan/50" : "hover:bg-codex-tan/30"}`}
               aria-label="Grid view"
             >
               <Grid className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode("list")}
-              className={`p-2 ${viewMode === "list" ? "bg-neutral-100" : "hover:bg-neutral-50"}`}
+              className={`p-2 ${viewMode === "list" ? "bg-codex-tan/50" : "hover:bg-codex-tan/30"}`}
               aria-label="List view"
             >
               <List className="w-4 h-4" />
@@ -92,7 +92,7 @@ export function ProductsPage() {
         <div className="card p-4 mb-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">
+              <label className="block text-sm font-medium text-codex-brown mb-1">
                 Search
               </label>
               <input
@@ -104,7 +104,7 @@ export function ProductsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">
+              <label className="block text-sm font-medium text-codex-brown mb-1">
                 Game System
               </label>
               <select
@@ -121,7 +121,7 @@ export function ProductsPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">
+              <label className="block text-sm font-medium text-codex-brown mb-1">
                 Product Type
               </label>
               <select
@@ -147,10 +147,10 @@ export function ProductsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {Array.from({ length: 10 }).map((_, i) => (
             <div key={i} className="card overflow-hidden animate-pulse">
-              <div className="aspect-[3/4] bg-neutral-200" />
+              <div className="aspect-[3/4] bg-codex-tan" />
               <div className="p-3 space-y-2">
-                <div className="h-4 bg-neutral-200 rounded" />
-                <div className="h-3 bg-neutral-200 rounded w-2/3" />
+                <div className="h-4 bg-codex-tan rounded" />
+                <div className="h-3 bg-codex-tan rounded w-2/3" />
               </div>
             </div>
           ))}
@@ -171,7 +171,7 @@ export function ProductsPage() {
             <ChevronLeft className="w-4 h-4" />
             Previous
           </button>
-          <span className="text-neutral-600 px-4">
+          <span className="text-codex-brown px-4">
             Page {page} of {totalPages}
           </span>
           <button
@@ -192,8 +192,8 @@ function ProductGrid({ products }: { products: Product[] }) {
   if (products.length === 0) {
     return (
       <div className="text-center py-12">
-        <BookOpen className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-        <p className="text-neutral-500">No products found</p>
+        <BookOpen className="w-12 h-12 text-codex-brown/40 mx-auto mb-4" />
+        <p className="text-codex-brown/70">No products found in the archives</p>
       </div>
     );
   }
@@ -204,9 +204,9 @@ function ProductGrid({ products }: { products: Product[] }) {
         <Link
           key={product.id}
           to={`/products/${product.slug}`}
-          className="card overflow-hidden hover:shadow-md transition-shadow group"
+          className="card overflow-hidden group transition-all duration-300"
         >
-          <div className="aspect-[3/4] bg-neutral-200 relative">
+          <div className="aspect-[3/4] bg-codex-tan relative">
             {product.cover_url || product.thumbnail_url ? (
               <img
                 src={product.thumbnail_url || product.cover_url}
@@ -216,12 +216,12 @@ function ProductGrid({ products }: { products: Product[] }) {
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <BookOpen className="w-12 h-12 text-neutral-400" />
+                <BookOpen className="w-12 h-12 text-codex-brown/40" />
               </div>
             )}
           </div>
           <div className="p-3">
-            <h3 className="font-medium text-sm text-neutral-900 line-clamp-2 group-hover:text-primary-600 transition-colors">
+            <h3 className="font-medium text-sm text-codex-ink line-clamp-2 group-hover:text-codex-olive transition-colors">
               {product.title}
             </h3>
             <div className="flex items-center gap-2 mt-2">
@@ -240,8 +240,8 @@ function ProductList({ products }: { products: Product[] }) {
   if (products.length === 0) {
     return (
       <div className="text-center py-12">
-        <BookOpen className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-        <p className="text-neutral-500">No products found</p>
+        <BookOpen className="w-12 h-12 text-codex-brown/40 mx-auto mb-4" />
+        <p className="text-codex-brown/70">No products found in the archives</p>
       </div>
     );
   }
@@ -252,9 +252,9 @@ function ProductList({ products }: { products: Product[] }) {
         <Link
           key={product.id}
           to={`/products/${product.slug}`}
-          className="card p-4 flex gap-4 hover:shadow-md transition-shadow group"
+          className="card p-4 flex gap-4 group transition-all duration-300"
         >
-          <div className="w-16 h-20 bg-neutral-200 rounded overflow-hidden flex-shrink-0">
+          <div className="w-16 h-20 bg-codex-tan overflow-hidden flex-shrink-0" style={{ borderRadius: '2px' }}>
             {product.cover_url || product.thumbnail_url ? (
               <img
                 src={product.thumbnail_url || product.cover_url}
@@ -264,15 +264,15 @@ function ProductList({ products }: { products: Product[] }) {
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <BookOpen className="w-6 h-6 text-neutral-400" />
+                <BookOpen className="w-6 h-6 text-codex-brown/40" />
               </div>
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-neutral-900 group-hover:text-primary-600 transition-colors">
+            <h3 className="font-medium text-codex-ink group-hover:text-codex-olive transition-colors">
               {product.title}
             </h3>
-            <p className="text-sm text-neutral-500 mt-1">
+            <p className="text-sm text-codex-brown/70 mt-1">
               {product.publisher_name}
               {product.page_count && ` · ${product.page_count} pages`}
             </p>

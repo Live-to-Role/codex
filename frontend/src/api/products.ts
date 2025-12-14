@@ -1,5 +1,6 @@
 import apiClient from "./client";
 import type { Product, PaginatedResponse, IdentifyResponse } from "@/types";
+import { getMockProducts, getMockProduct } from "./mockData";
 
 export interface ProductFilters {
   page?: number;
@@ -17,23 +18,34 @@ export interface ProductFilters {
 export async function getProducts(
   filters: ProductFilters = {}
 ): Promise<PaginatedResponse<Product>> {
-  const params = new URLSearchParams();
+  try {
+    const params = new URLSearchParams();
 
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      params.append(key, String(value));
-    }
-  });
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        params.append(key, String(value));
+      }
+    });
 
-  const response = await apiClient.get<PaginatedResponse<Product>>(
-    `/products/?${params.toString()}`
-  );
-  return response.data;
+    const response = await apiClient.get<PaginatedResponse<Product>>(
+      `/products/?${params.toString()}`
+    );
+    return response.data;
+  } catch {
+    console.log("API unavailable, using mock data");
+    return getMockProducts(filters);
+  }
 }
 
 export async function getProduct(slug: string): Promise<Product> {
-  const response = await apiClient.get<Product>(`/products/${slug}/`);
-  return response.data;
+  try {
+    const response = await apiClient.get<Product>(`/products/${slug}/`);
+    return response.data;
+  } catch {
+    const mockProduct = getMockProduct(slug);
+    if (mockProduct) return mockProduct;
+    throw new Error("Product not found");
+  }
 }
 
 export async function createProduct(data: Partial<Product>): Promise<Product> {
@@ -64,4 +76,24 @@ export async function identifyProduct(params: {
     `/identify?${queryParams.toString()}`
   );
   return response.data;
+}
+
+export interface Revision {
+  id: string;
+  user?: {
+    id: string;
+    public_name: string;
+  };
+  changes: Record<string, unknown>;
+  comment: string;
+  created_at: string;
+}
+
+export async function getProductRevisions(slug: string): Promise<Revision[]> {
+  try {
+    const response = await apiClient.get<Revision[]>(`/products/${slug}/revisions/`);
+    return response.data;
+  } catch {
+    return [];
+  }
 }
