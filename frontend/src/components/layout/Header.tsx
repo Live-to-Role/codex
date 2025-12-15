@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Menu, X, Search, BookOpen, Users, Gamepad2, LogIn, Library, Plus } from "lucide-react";
+import { Menu, X, Search, BookOpen, Users, Gamepad2, LogIn, Library, Plus, Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
-  const { isAuthenticated: authenticated } = useAuth();
+  const { isAuthenticated: authenticated, user } = useAuth();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +66,12 @@ export function Header() {
 
             {authenticated ? (
               <>
+                {user?.is_moderator && (
+                  <Link to="/moderation" className="btn-ghost hidden sm:flex items-center gap-1">
+                    <Shield className="w-4 h-4" />
+                    <span>Moderation</span>
+                  </Link>
+                )}
                 <Link to="/products/new" className="btn-primary hidden sm:flex items-center gap-1">
                   <Plus className="w-4 h-4" />
                   <span>Contribute</span>
@@ -124,6 +130,17 @@ export function Header() {
                   </Link>
                 );
               })}
+              {user?.is_moderator && (
+                <Link
+                  to="/moderation"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center gap-3 px-3 py-2.5 text-codex-olive hover:bg-codex-tan/50 hover:text-codex-ink transition-colors"
+                  style={{ borderRadius: '2px' }}
+                >
+                  <Shield className="w-5 h-5" />
+                  Moderation
+                </Link>
+              )}
             </nav>
           </div>
         </div>

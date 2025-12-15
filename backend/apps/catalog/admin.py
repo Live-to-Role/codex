@@ -176,13 +176,86 @@ class ContributionAdmin(admin.ModelAdmin):
     readonly_fields = ["created_at"]
     actions = ["approve_contributions", "reject_contributions"]
 
+    def _create_product_from_data(self, data, user):
+        """Create a new product from contribution data."""
+        from django.utils.text import slugify
+        
+        title = data.get("title", "Untitled Product")
+        base_slug = slugify(title)[:200]
+        
+        # Ensure unique slug
+        slug = base_slug
+        counter = 1
+        while Product.objects.filter(slug=slug).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+        
+        # Map string names to foreign keys if needed
+        publisher = None
+        if data.get("publisher_id"):
+            publisher = Publisher.objects.filter(id=data["publisher_id"]).first()
+        elif data.get("publisher"):
+            publisher = Publisher.objects.filter(name__iexact=data["publisher"]).first()
+        
+        game_system = None
+        if data.get("game_system_id"):
+            game_system = GameSystem.objects.filter(id=data["game_system_id"]).first()
+        elif data.get("game_system"):
+            game_system = GameSystem.objects.filter(name__iexact=data["game_system"]).first()
+        
+        product = Product.objects.create(
+            title=title,
+            slug=slug,
+            description=data.get("description", ""),
+            publisher=publisher,
+            game_system=game_system,
+            product_type=data.get("product_type", "adventure"),
+            page_count=data.get("page_count"),
+            level_range_min=data.get("level_range_min"),
+            level_range_max=data.get("level_range_max"),
+            party_size_min=data.get("party_size_min"),
+            party_size_max=data.get("party_size_max"),
+            estimated_runtime=data.get("estimated_runtime", ""),
+            dtrpg_url=data.get("dtrpg_url", ""),
+            itch_url=data.get("itch_url", ""),
+            tags=data.get("tags", []),
+            created_by=user,
+            status="published",
+        )
+        return product
+
     @admin.action(description="Approve selected contributions")
     def approve_contributions(self, request, queryset):
-        queryset.update(status="approved", reviewed_by=request.user)
+        approved_count = 0
+        for contribution in queryset.filter(status="pending"):
+            if contribution.contribution_type == "new_product":
+                product = self._create_product_from_data(contribution.data, contribution.user)
+                contribution.product = product
+            elif contribution.product:
+                # Apply edits to existing product
+                product = contribution.product
+                for field in ["title", "description", "page_count", "level_range_min", 
+                              "level_range_max", "dtrpg_url", "itch_url", "tags"]:
+                    if field in contribution.data:
+                        setattr(product, field, contribution.data[field])
+                product.save()
+            
+            contribution.status = "approved"
+            contribution.reviewed_by = request.user
+            contribution.reviewed_at = timezone.now()
+            contribution.save()
+            approved_count += 1
+        
+        self.message_user(request, f"Approved {approved_count} contribution(s) and created/updated products.")
 
     @admin.action(description="Reject selected contributions")
     def reject_contributions(self, request, queryset):
-        queryset.update(status="rejected", reviewed_by=request.user)
+        count = queryset.filter(status="pending").update(
+            status="rejected", 
+            reviewed_by=request.user,
+            reviewed_at=timezone.now()
+        )
+        self.message_user(request, f"Rejected {count} contribution(s).")
 
 
 class CommunityNoteInline(admin.TabularInline):
