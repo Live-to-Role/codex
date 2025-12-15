@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Menu, X, Search, BookOpen, Users, Gamepad2, LogIn } from "lucide-react";
+import { Menu, X, Search, BookOpen, Users, Gamepad2, LogIn, Library, Plus } from "lucide-react";
 import { isAuthenticated } from "@/api/auth";
 
 export function Header() {
@@ -21,6 +21,7 @@ export function Header() {
     { to: "/products", label: "Products", icon: BookOpen },
     { to: "/publishers", label: "Publishers", icon: Users },
     { to: "/systems", label: "Systems", icon: Gamepad2 },
+    { to: "/series", label: "Series", icon: Library },
   ];
 
   return (
@@ -64,9 +65,15 @@ export function Header() {
             </form>
 
             {authenticated ? (
-              <Link to="/profile" className="btn-ghost">
-                Account
-              </Link>
+              <>
+                <Link to="/products/new" className="btn-primary hidden sm:flex items-center gap-1">
+                  <Plus className="w-4 h-4" />
+                  <span>Contribute</span>
+                </Link>
+                <Link to="/profile" className="btn-ghost">
+                  Account
+                </Link>
+              </>
             ) : (
               <Link to="/login" className="btn-primary">
                 <LogIn className="w-4 h-4" />

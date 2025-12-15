@@ -9,6 +9,8 @@ export async function getPendingContributions(
     if (status) {
       params.append("status", status);
     }
+    // Add moderation=true to get contributions user can moderate
+    params.append("moderation", "true");
     const response = await apiClient.get<{ results: Contribution[] }>(
       `/contributions/?${params.toString()}`
     );
@@ -22,10 +24,13 @@ export async function reviewContribution(
   id: string,
   status: "approved" | "rejected",
   notes: string
-): Promise<Contribution> {
-  const response = await apiClient.patch<Contribution>(`/contributions/${id}/review/`, {
-    status,
-    review_notes: notes,
-  });
+): Promise<{ status: string; message: string }> {
+  const response = await apiClient.post<{ status: string; message: string }>(
+    `/contributions/${id}/review/`,
+    {
+      action: status === "approved" ? "approve" : "reject",
+      review_notes: notes,
+    }
+  );
   return response.data;
 }

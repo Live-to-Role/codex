@@ -322,7 +322,30 @@ class ContributionCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Contribution
-        fields = ["product", "data", "file_hash", "source"]
+        fields = ["contribution_type", "product", "data", "file_hash", "source"]
+
+    def validate(self, attrs):
+        contribution_type = attrs.get("contribution_type")
+        product = attrs.get("product")
+
+        if contribution_type == "edit_product" and not product:
+            raise serializers.ValidationError({
+                "product": "Product is required for edit contributions."
+            })
+
+        if contribution_type == "new_product" and product:
+            raise serializers.ValidationError({
+                "product": "Product should not be provided for new product contributions."
+            })
+
+        return attrs
+
+
+class ContributionReviewSerializer(serializers.Serializer):
+    """Serializer for reviewing (approving/rejecting) contributions."""
+
+    action = serializers.ChoiceField(choices=["approve", "reject"])
+    review_notes = serializers.CharField(max_length=1000, required=False, allow_blank=True)
 
 
 class FileHashCreateSerializer(serializers.ModelSerializer):

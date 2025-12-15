@@ -1,14 +1,25 @@
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
-import { User, BookOpen, Clock, CheckCircle, XCircle, Loader2, Shield, Award } from "lucide-react";
-import { getCurrentUser } from "@/api/auth";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router-dom";
+import { User, BookOpen, Clock, CheckCircle, XCircle, Loader2, Shield, Award, LogOut } from "lucide-react";
+import { getCurrentUser, logout } from "@/api/auth";
 import { getMyContributions } from "@/api/users";
 import { formatDate } from "@/lib/utils";
 
 export function ProfilePage() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
   const { data: user, isLoading: userLoading } = useQuery({
     queryKey: ["currentUser"],
     queryFn: getCurrentUser,
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: logout,
+    onSuccess: () => {
+      queryClient.clear();
+      navigate("/");
+    },
   });
 
   const { data: contributions, isLoading: contributionsLoading } = useQuery({
@@ -119,6 +130,17 @@ export function ProfilePage() {
                 <span className="text-codex-brown/60">Member since:</span>{" "}
                 <span className="font-medium text-codex-ink">{formatDate(user.created_at)}</span>
               </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-codex-brown/10">
+              <button
+                onClick={() => logoutMutation.mutate()}
+                disabled={logoutMutation.isPending}
+                className="btn-ghost text-red-700 hover:bg-red-50 flex items-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                {logoutMutation.isPending ? "Signing out..." : "Sign Out"}
+              </button>
             </div>
           </div>
         </div>

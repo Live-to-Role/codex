@@ -43,3 +43,21 @@ export async function updateCurrentUser(data: Partial<User>): Promise<User> {
 export function isAuthenticated(): boolean {
   return !!localStorage.getItem("access_token");
 }
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  await apiClient.post("/auth/password/reset/", { email });
+}
+
+export async function confirmPasswordReset(
+  uid: string,
+  token: string,
+  newPassword1: string,
+  newPassword2: string
+): Promise<void> {
+  await apiClient.post("/auth/password/reset/confirm/", {
+    uid,
+    token,
+    new_password1: newPassword1,
+    new_password2: newPassword2,
+  });
+}

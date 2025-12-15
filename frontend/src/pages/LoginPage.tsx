@@ -55,6 +55,12 @@ export function LoginPage() {
           <button type="submit" disabled={loginMutation.isPending} className="btn-primary w-full">
             {loginMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Enter the Archives"}
           </button>
+
+          <div className="text-center">
+            <Link to="/forgot-password" className="text-sm text-codex-brown/70 hover:text-codex-olive">
+              Forgot your password?
+            </Link>
+          </div>
         </form>
 
         <p className="text-center text-codex-brown/70 mt-4">

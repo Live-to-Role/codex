@@ -21,6 +21,7 @@ from apps.catalog.models import (
     Publisher,
     Revision,
 )
+from apps.catalog.permissions import CanModerateContribution, get_moderation_queryset
 
 from .serializers import (
     AuthorDetailSerializer,
@@ -28,6 +29,7 @@ from .serializers import (
     CommentCreateSerializer,
     CommentSerializer,
     ContributionCreateSerializer,
+    ContributionReviewSerializer,
     ContributionSerializer,
     FileHashCreateSerializer,
     FileHashSerializer,
@@ -518,20 +520,29 @@ class ProductSeriesViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class ContributionViewSet(viewsets.ModelViewSet):
-    """ViewSet for contributions."""
+    """ViewSet for contributions with moderation workflow."""
 
     queryset = Contribution.objects.select_related(
         "product",
+        "product__publisher",
+        "product__game_system",
         "user",
         "reviewed_by",
     ).order_by("-created_at")
-    permission_classes = [IsAuthenticatedOrReadOnly]
-    filterset_fields = ["status", "source"]
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ["status", "source", "contribution_type"]
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        if not self.request.user.is_staff:
-            queryset = queryset.filter(user=self.request.user)
+        user = self.request.user
+
+        # For moderation queue, filter by what user can moderate
+        if self.request.query_params.get("moderation") == "true":
+            queryset = get_moderation_queryset(user, queryset)
+        elif not (user.is_superuser or getattr(user, "is_moderator", False)):
+            # Regular users only see their own contributions
+            queryset = queryset.filter(user=user)
+
         return queryset
 
     def get_serializer_class(self):
@@ -539,62 +550,198 @@ class ContributionViewSet(viewsets.ModelViewSet):
             return ContributionCreateSerializer
         return ContributionSerializer
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+    def create(self, request, *args, **kwargs):
+        """Submit a new contribution with permission-based routing."""
+        serializer = ContributionCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-    @action(detail=True, methods=["patch"], permission_classes=[IsAuthenticated])
+        data = serializer.validated_data
+        contribution_type = data.get("contribution_type", "edit_product")
+        product = data.get("product")
+        contribution_data = data.get("data", {})
+
+        # Check if user can edit directly (bypass moderation)
+        can_edit_directly = self._can_edit_directly(request.user, product, contribution_type)
+
+        if can_edit_directly:
+            if contribution_type == "new_product":
+                # Create product directly
+                new_product = self._create_product_from_data(contribution_data, request.user)
+                return Response({
+                    "status": "applied",
+                    "message": "Product created successfully",
+                    "product_id": str(new_product.id),
+                    "product_slug": new_product.slug,
+                }, status=status.HTTP_201_CREATED)
+            elif product:
+                # Apply edit directly
+                self._apply_changes_to_product(product, contribution_data, request.user)
+                return Response({
+                    "status": "applied",
+                    "message": "Changes applied successfully",
+                    "product_id": str(product.id),
+                    "product_slug": product.slug,
+                }, status=status.HTTP_200_OK)
+
+        # Create pending contribution for moderation
+        contribution = Contribution.objects.create(
+            contribution_type=contribution_type,
+            product=product,
+            user=request.user,
+            data=contribution_data,
+            file_hash=data.get("file_hash", ""),
+            source=data.get("source", Contribution.ContributionSource.WEB),
+            status=Contribution.ContributionStatus.PENDING,
+        )
+
+        return Response({
+            "status": "pending",
+            "message": "Contribution submitted for review",
+            "contribution_id": str(contribution.id),
+        }, status=status.HTTP_201_CREATED)
+
+    def _can_edit_directly(self, user, product, contribution_type):
+        """Check if user can bypass moderation."""
+        if user.is_superuser or getattr(user, "is_moderator", False):
+            return True
+
+        if product and product.publisher:
+            if user in product.publisher.representatives.all():
+                return True
+
+        # For new products, check if user is a publisher rep
+        if contribution_type == "new_product":
+            if user.represented_publishers.exists():
+                return True
+
+        return False
+
+    @action(detail=True, methods=["post"], permission_classes=[CanModerateContribution])
     def review(self, request, pk=None):
-        """Review a contribution (approve or reject). Staff only."""
-        if not request.user.is_staff:
-            return Response(
-                {"detail": "Only staff members can review contributions."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
+        """Approve or reject a contribution."""
         contribution = self.get_object()
-        new_status = request.data.get("status")
-        review_notes = request.data.get("review_notes", "")
 
-        if new_status not in ["approved", "rejected"]:
-            return Response(
-                {"detail": "Status must be 'approved' or 'rejected'."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        serializer = ContributionReviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        action_type = serializer.validated_data["action"]
+        review_notes = serializer.validated_data.get("review_notes", "")
 
         from django.utils import timezone
 
-        contribution.status = new_status
-        contribution.review_notes = review_notes
+        if action_type == "approve":
+            if contribution.contribution_type == "new_product":
+                product = self._create_product_from_data(contribution.data, contribution.user)
+                contribution.product = product
+            elif contribution.product:
+                self._apply_changes_to_product(
+                    contribution.product,
+                    contribution.data,
+                    contribution.user,
+                )
+
+            contribution.status = Contribution.ContributionStatus.APPROVED
+
+            # Update contributor reputation
+            if contribution.user:
+                contribution.user.contribution_count += 1
+                contribution.user.reputation += 10
+                contribution.user.save()
+        else:
+            contribution.status = Contribution.ContributionStatus.REJECTED
+
         contribution.reviewed_by = request.user
+        contribution.review_notes = review_notes
         contribution.reviewed_at = timezone.now()
         contribution.save()
 
-        if new_status == "approved" and contribution.data:
-            self._apply_contribution(contribution)
+        return Response({
+            "status": contribution.status,
+            "message": f"Contribution {action_type}d successfully",
+        })
 
-        serializer = ContributionSerializer(contribution)
-        return Response(serializer.data)
+    def _apply_changes_to_product(self, product, changes, user):
+        """Apply changes to a product and create revision record."""
+        old_values = {}
+        new_values = {}
 
-    def _apply_contribution(self, contribution):
-        """Apply approved contribution data to the product."""
-        if contribution.product:
-            product = contribution.product
-            data = contribution.data
+        editable_fields = [
+            "title", "description", "product_type", "page_count",
+            "level_range_min", "level_range_max", "dtrpg_url",
+            "itch_url", "tags"
+        ]
 
-            for field in ["title", "description", "product_type", "page_count",
-                          "level_range_min", "level_range_max", "dtrpg_url",
-                          "itch_url", "tags"]:
-                if field in data:
-                    setattr(product, field, data[field])
+        for field in editable_fields:
+            if field in changes:
+                old_values[field] = getattr(product, field, None)
+                setattr(product, field, changes[field])
+                new_values[field] = changes[field]
 
-            product.save()
+        # Handle foreign key fields
+        if "publisher_id" in changes:
+            old_values["publisher"] = str(product.publisher_id) if product.publisher_id else None
+            product.publisher_id = changes["publisher_id"]
+            new_values["publisher"] = changes["publisher_id"]
 
-            Revision.objects.create(
-                product=product,
-                user=contribution.user,
-                changes=data,
-                comment=f"Applied from contribution {contribution.id}",
-            )
+        if "game_system_id" in changes:
+            old_values["game_system"] = str(product.game_system_id) if product.game_system_id else None
+            product.game_system_id = changes["game_system_id"]
+            new_values["game_system"] = changes["game_system_id"]
+
+        product.save()
+
+        # Create revision for history
+        Revision.objects.create(
+            product=product,
+            user=user,
+            changes={
+                field: {"old": str(old_values.get(field, "")), "new": str(new_values.get(field, ""))}
+                for field in new_values.keys()
+            },
+            comment="Edit applied",
+        )
+
+    def _create_product_from_data(self, data, user):
+        """Create a new product from contribution data."""
+        from django.utils.text import slugify
+        import uuid
+
+        title = data.get("title", "Untitled Product")
+        base_slug = slugify(title)[:200]
+
+        # Ensure unique slug
+        slug = base_slug
+        counter = 1
+        while Product.objects.filter(slug=slug).exists():
+            slug = f"{base_slug}-{counter}"
+            counter += 1
+
+        product = Product.objects.create(
+            title=title,
+            slug=slug,
+            description=data.get("description", ""),
+            product_type=data.get("product_type", "other"),
+            page_count=data.get("page_count"),
+            level_range_min=data.get("level_range_min"),
+            level_range_max=data.get("level_range_max"),
+            dtrpg_url=data.get("dtrpg_url", ""),
+            itch_url=data.get("itch_url", ""),
+            tags=data.get("tags", []),
+            publisher_id=data.get("publisher_id"),
+            game_system_id=data.get("game_system_id"),
+            status=Product.ProductStatus.PUBLISHED,
+            created_by=user,
+        )
+
+        # Create initial revision
+        Revision.objects.create(
+            product=product,
+            user=user,
+            changes={"created": {"old": "", "new": "Product created"}},
+            comment="Initial creation",
+        )
+
+        return product
 
 
 class SearchView(APIView):

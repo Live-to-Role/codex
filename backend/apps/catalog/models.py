@@ -18,6 +18,13 @@ class Publisher(models.Model):
 
     is_verified = models.BooleanField(default=False)
 
+    representatives = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        blank=True,
+        related_name="represented_publishers",
+        help_text="Users who can directly edit this publisher's products and moderate contributions",
+    )
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -424,7 +431,18 @@ class Contribution(models.Model):
         GRIMOIRE = "grimoire", "Grimoire"
         API = "api", "API"
 
+    class ContributionType(models.TextChoices):
+        NEW_PRODUCT = "new_product", "New Product"
+        EDIT_PRODUCT = "edit_product", "Edit Product"
+        NEW_PUBLISHER = "new_publisher", "New Publisher"
+        NEW_SYSTEM = "new_system", "New Game System"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    contribution_type = models.CharField(
+        max_length=20,
+        choices=ContributionType.choices,
+        default=ContributionType.EDIT_PRODUCT,
+    )
     product = models.ForeignKey(
         Product,
         on_delete=models.CASCADE,
