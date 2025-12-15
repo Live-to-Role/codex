@@ -19,6 +19,18 @@ def main():
     
     print("Migrations complete.", flush=True)
     
+    # Collect static files
+    print("Collecting static files...", flush=True)
+    result = subprocess.run(
+        ["python", "manage.py", "collectstatic", "--noinput"],
+        capture_output=False
+    )
+    if result.returncode != 0:
+        print(f"Collectstatic failed with code {result.returncode}", flush=True)
+        # Don't exit - static files may already exist
+    else:
+        print("Static files collected.", flush=True)
+    
     # Test WSGI import
     print("Testing WSGI import...", flush=True)
     try:
