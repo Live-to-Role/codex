@@ -10,6 +10,9 @@ export const apiClient = axios.create({
   withCredentials: true,
 });
 
+// URLs that should not trigger token refresh on 401
+const AUTH_URLS = ["/auth/login/", "/auth/registration/", "/auth/token/refresh/", "/auth/user/"];
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -17,7 +20,15 @@ apiClient.interceptors.response.use(
       _retry?: boolean;
     };
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const requestUrl = originalRequest?.url || "";
+    const isAuthUrl = AUTH_URLS.some((url) => requestUrl.includes(url));
+
+    // Don't retry refresh for auth endpoints or if already retried
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isAuthUrl
+    ) {
       originalRequest._retry = true;
 
       try {
@@ -28,7 +39,10 @@ apiClient.interceptors.response.use(
         );
         return apiClient(originalRequest);
       } catch {
-        window.location.href = "/login";
+        // Only redirect if not already on login page
+        if (!window.location.pathname.includes("/login")) {
+          window.location.href = "/login";
+        }
       }
     }
 
