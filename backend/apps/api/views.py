@@ -860,12 +860,15 @@ class ContributionViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         """Submit a new contribution with permission-based routing."""
         # Log incoming request for debugging
+        file_hash_preview = "none"
+        if request.data.get("file_hash"):
+            file_hash_preview = str(request.data.get("file_hash"))[:16] + "..."
         logger.info(
             "Contribution request from user=%s source=%s type=%s file_hash=%s",
             request.user.id if request.user.is_authenticated else "anonymous",
             request.data.get("source", "unknown"),
             request.data.get("contribution_type", "unknown"),
-            request.data.get("file_hash", "")[:16] + "..." if request.data.get("file_hash") else "none",
+            file_hash_preview,
         )
 
         # Validate serializer with detailed error response
@@ -925,7 +928,7 @@ class ContributionViewSet(viewsets.ModelViewSet):
                 }, status=status.HTTP_400_BAD_REQUEST)
 
             # Check if file_hash matches an existing product
-            existing_file_hash = FileHash.objects.filter(hash_value=file_hash).select_related("product").first()
+            existing_file_hash = FileHash.objects.filter(hash_sha256=file_hash).select_related("product").first()
             if existing_file_hash:
                 logger.info(
                     "File hash already exists for product=%s (hash=%s)",
