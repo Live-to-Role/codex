@@ -318,22 +318,49 @@ class ContributionSerializer(serializers.ModelSerializer):
 
 
 class ContributionCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating contributions."""
+    """Serializer for creating contributions.
+    
+    Supports both new Codex format and legacy Grimoire format:
+    - New: contribution_type + product
+    - Legacy: product_id (null = new product, uuid = edit)
+    """
+
+    # Accept legacy field name for Grimoire compatibility
+    product_id = serializers.UUIDField(required=False, write_only=True, allow_null=True)
 
     class Meta:
         model = Contribution
-        fields = ["contribution_type", "product", "data", "file_hash", "source"]
+        fields = ["contribution_type", "product", "product_id", "data", "file_hash", "source"]
+        extra_kwargs = {
+            "contribution_type": {"required": False},
+            "product": {"required": False},
+        }
 
     def validate(self, attrs):
+        # Handle product_id → product mapping (Grimoire compatibility)
+        product_id = attrs.pop("product_id", None)
+        if product_id and not attrs.get("product"):
+            try:
+                attrs["product"] = Product.objects.get(id=product_id)
+            except Product.DoesNotExist:
+                raise serializers.ValidationError({"product_id": "Product not found."})
+
+        # Auto-infer contribution_type if not provided
+        if not attrs.get("contribution_type"):
+            if attrs.get("product"):
+                attrs["contribution_type"] = Contribution.ContributionType.EDIT_PRODUCT
+            else:
+                attrs["contribution_type"] = Contribution.ContributionType.NEW_PRODUCT
+
         contribution_type = attrs.get("contribution_type")
         product = attrs.get("product")
 
-        if contribution_type == "edit_product" and not product:
+        if contribution_type == Contribution.ContributionType.EDIT_PRODUCT and not product:
             raise serializers.ValidationError({
                 "product": "Product is required for edit contributions."
             })
 
-        if contribution_type == "new_product" and product:
+        if contribution_type == Contribution.ContributionType.NEW_PRODUCT and product:
             raise serializers.ValidationError({
                 "product": "Product should not be provided for new product contributions."
             })
