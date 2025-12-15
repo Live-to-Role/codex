@@ -1,3 +1,5 @@
+import logging
+
 from django.db.models import Count, Q
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -36,6 +38,8 @@ from apps.catalog.models import (
     SpoilerLevel,
 )
 from apps.catalog.permissions import CanModerateContribution, get_moderation_queryset
+
+logger = logging.getLogger(__name__)
 
 from .serializers import (
     AdventureRunCreateSerializer,
@@ -855,51 +859,162 @@ class ContributionViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """Submit a new contribution with permission-based routing."""
+        # Log incoming request for debugging
+        logger.info(
+            "Contribution request from user=%s source=%s type=%s file_hash=%s",
+            request.user.id if request.user.is_authenticated else "anonymous",
+            request.data.get("source", "unknown"),
+            request.data.get("contribution_type", "unknown"),
+            request.data.get("file_hash", "")[:16] + "..." if request.data.get("file_hash") else "none",
+        )
+
+        # Validate serializer with detailed error response
         serializer = ContributionCreateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            logger.warning(
+                "Contribution validation failed: %s | request_data=%s",
+                serializer.errors,
+                {k: v for k, v in request.data.items() if k != "data"},  # Exclude large data field
+            )
+            return Response({
+                "error": "validation_error",
+                "message": "Request validation failed",
+                "details": serializer.errors,
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         data = serializer.validated_data
         contribution_type = data.get("contribution_type", "edit_product")
         product = data.get("product")
         contribution_data = data.get("data", {})
 
-        # Validate and sanitize contribution data
-        contribution_data = validate_contribution_data(contribution_data, contribution_type)
-        validate_foreign_key_access(contribution_data, request.user)
+        # Validate and sanitize contribution data with detailed error handling
+        try:
+            contribution_data = validate_contribution_data(contribution_data, contribution_type)
+            validate_foreign_key_access(contribution_data, request.user)
+        except Exception as e:
+            error_detail = getattr(e, "detail", str(e))
+            logger.warning(
+                "Contribution data validation failed: %s | user=%s type=%s",
+                error_detail,
+                request.user.id,
+                contribution_type,
+            )
+            return Response({
+                "error": "data_validation_error",
+                "message": "Contribution data validation failed",
+                "details": error_detail,
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check for duplicate file_hash (if provided)
+        file_hash = data.get("file_hash", "")
+        if file_hash:
+            existing_contribution = Contribution.objects.filter(
+                file_hash=file_hash,
+                status=Contribution.ContributionStatus.PENDING,
+            ).first()
+            if existing_contribution:
+                logger.info(
+                    "Duplicate pending contribution for file_hash=%s (existing_id=%s)",
+                    file_hash[:16] + "...",
+                    existing_contribution.id,
+                )
+                return Response({
+                    "error": "duplicate_pending",
+                    "message": "A pending contribution with this file hash already exists",
+                    "existing_contribution_id": str(existing_contribution.id),
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if file_hash matches an existing product
+            existing_file_hash = FileHash.objects.filter(hash_value=file_hash).select_related("product").first()
+            if existing_file_hash:
+                logger.info(
+                    "File hash already exists for product=%s (hash=%s)",
+                    existing_file_hash.product_id,
+                    file_hash[:16] + "...",
+                )
+                return Response({
+                    "error": "file_hash_exists",
+                    "message": "A product with this file hash already exists",
+                    "existing_product_id": str(existing_file_hash.product_id),
+                    "existing_product_title": existing_file_hash.product.title if existing_file_hash.product else None,
+                }, status=status.HTTP_400_BAD_REQUEST)
 
         # Check if user can edit directly (bypass moderation)
         can_edit_directly = self._can_edit_directly(request.user, product, contribution_type)
 
         if can_edit_directly:
-            if contribution_type == "new_product":
-                # Create product directly
-                new_product = self._create_product_from_data(contribution_data, request.user)
+            try:
+                if contribution_type == "new_product":
+                    # Create product directly
+                    new_product = self._create_product_from_data(contribution_data, request.user)
+                    logger.info(
+                        "Product created directly: id=%s title=%s user=%s",
+                        new_product.id,
+                        new_product.title,
+                        request.user.id,
+                    )
+                    return Response({
+                        "status": "applied",
+                        "message": "Product created successfully",
+                        "product_id": str(new_product.id),
+                        "product_slug": new_product.slug,
+                    }, status=status.HTTP_201_CREATED)
+                elif product:
+                    # Apply edit directly
+                    self._apply_changes_to_product(product, contribution_data, request.user)
+                    logger.info(
+                        "Product edited directly: id=%s user=%s",
+                        product.id,
+                        request.user.id,
+                    )
+                    return Response({
+                        "status": "applied",
+                        "message": "Changes applied successfully",
+                        "product_id": str(product.id),
+                        "product_slug": product.slug,
+                    }, status=status.HTTP_200_OK)
+            except Exception as e:
+                logger.exception(
+                    "Error applying contribution directly: %s | user=%s type=%s",
+                    str(e),
+                    request.user.id,
+                    contribution_type,
+                )
                 return Response({
-                    "status": "applied",
-                    "message": "Product created successfully",
-                    "product_id": str(new_product.id),
-                    "product_slug": new_product.slug,
-                }, status=status.HTTP_201_CREATED)
-            elif product:
-                # Apply edit directly
-                self._apply_changes_to_product(product, contribution_data, request.user)
-                return Response({
-                    "status": "applied",
-                    "message": "Changes applied successfully",
-                    "product_id": str(product.id),
-                    "product_slug": product.slug,
-                }, status=status.HTTP_200_OK)
+                    "error": "apply_error",
+                    "message": "Failed to apply contribution",
+                    "details": str(e),
+                }, status=status.HTTP_400_BAD_REQUEST)
 
         # Create pending contribution for moderation
-        contribution = Contribution.objects.create(
-            contribution_type=contribution_type,
-            product=product,
-            user=request.user,
-            data=contribution_data,
-            file_hash=data.get("file_hash", ""),
-            source=data.get("source", Contribution.ContributionSource.WEB),
-            status=Contribution.ContributionStatus.PENDING,
-        )
+        try:
+            contribution = Contribution.objects.create(
+                contribution_type=contribution_type,
+                product=product,
+                user=request.user,
+                data=contribution_data,
+                file_hash=file_hash,
+                source=data.get("source", Contribution.ContributionSource.WEB),
+                status=Contribution.ContributionStatus.PENDING,
+            )
+            logger.info(
+                "Contribution created for moderation: id=%s type=%s user=%s",
+                contribution.id,
+                contribution_type,
+                request.user.id,
+            )
+        except Exception as e:
+            logger.exception(
+                "Error creating contribution: %s | user=%s type=%s",
+                str(e),
+                request.user.id,
+                contribution_type,
+            )
+            return Response({
+                "error": "creation_error",
+                "message": "Failed to create contribution",
+                "details": str(e),
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({
             "status": "pending",
