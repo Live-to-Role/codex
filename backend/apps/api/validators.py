@@ -21,6 +21,7 @@ ALLOWED_PRODUCT_FIELDS = {
     "publisher_id",
     "game_system_id",
     "publication_date",
+    "publication_year",  # Grimoire sends year as integer
     "format",
     "isbn",
     "msrp",
@@ -32,6 +33,9 @@ ALLOWED_PRODUCT_FIELDS = {
     "content_warnings",
     "cover_url",
     "thumbnail_url",
+    # Grimoire sends these as string names (not UUIDs)
+    "publisher",
+    "game_system",
 }
 
 # Valid product types (must match ProductType choices)
@@ -101,6 +105,8 @@ def _validate_field(field: str, value):
         "setting": 255,
         "cover_url": 500,
         "thumbnail_url": 500,
+        "publisher": 255,  # Grimoire sends publisher name as string
+        "game_system": 255,  # Grimoire sends game system name as string
     }
     
     if field in string_fields:
@@ -119,7 +125,7 @@ def _validate_field(field: str, value):
     
     # Integer fields
     int_fields = {"page_count", "level_range_min", "level_range_max", 
-                  "party_size_min", "party_size_max"}
+                  "party_size_min", "party_size_max", "publication_year"}
     if field in int_fields:
         if value is None:
             return None
