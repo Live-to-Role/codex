@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
-import { User, BookOpen, Clock, CheckCircle, XCircle, Loader2, Shield, Award, LogOut } from "lucide-react";
-import { getCurrentUser, logout } from "@/api/auth";
+import { User, BookOpen, Clock, CheckCircle, XCircle, Loader2, Shield, Award, LogOut, Key, Copy, RefreshCw, Trash2 } from "lucide-react";
+import { getCurrentUser, logout, getAPIKey, generateAPIKey, revokeAPIKey } from "@/api/auth";
 import { getMyContributions } from "@/api/users";
 import { formatDate } from "@/lib/utils";
 
@@ -26,6 +27,36 @@ export function ProfilePage() {
     queryKey: ["myContributions"],
     queryFn: getMyContributions,
   });
+
+  const { data: apiKeyInfo, isLoading: apiKeyLoading } = useQuery({
+    queryKey: ["apiKey"],
+    queryFn: getAPIKey,
+  });
+
+  const [newApiKey, setNewApiKey] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const generateKeyMutation = useMutation({
+    mutationFn: generateAPIKey,
+    onSuccess: (data) => {
+      setNewApiKey(data.key);
+      queryClient.invalidateQueries({ queryKey: ["apiKey"] });
+    },
+  });
+
+  const revokeKeyMutation = useMutation({
+    mutationFn: revokeAPIKey,
+    onSuccess: () => {
+      setNewApiKey(null);
+      queryClient.invalidateQueries({ queryKey: ["apiKey"] });
+    },
+  });
+
+  const copyToClipboard = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   if (userLoading) {
     return (
@@ -144,6 +175,88 @@ export function ProfilePage() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="card p-6 mb-8">
+        <div className="flex items-center gap-3 mb-4">
+          <Key className="w-5 h-5 text-codex-olive" />
+          <h2 className="font-display text-xl font-semibold text-codex-ink tracking-wide">
+            API Key for Grimoire
+          </h2>
+        </div>
+        <p className="text-sm text-codex-brown/70 mb-4">
+          Use this API key to connect Grimoire to your Codex account and contribute product identifications.
+        </p>
+
+        {apiKeyLoading ? (
+          <div className="flex items-center gap-2 text-codex-brown/60">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Loading...
+          </div>
+        ) : newApiKey ? (
+          <div className="space-y-3">
+            <div className="bg-codex-olive/10 border border-codex-olive/30 p-4" style={{ borderRadius: "2px" }}>
+              <p className="text-sm font-medium text-codex-olive mb-2">Your new API key (copy it now!):</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-white px-3 py-2 font-mono text-sm border border-codex-brown/20" style={{ borderRadius: "2px" }}>
+                  {newApiKey}
+                </code>
+                <button
+                  onClick={() => copyToClipboard(newApiKey)}
+                  className="btn-secondary flex items-center gap-1"
+                >
+                  <Copy className="w-4 h-4" />
+                  {copied ? "Copied!" : "Copy"}
+                </button>
+              </div>
+              <p className="text-xs text-codex-brown/60 mt-2">
+                This key won't be shown again. Store it securely.
+              </p>
+            </div>
+          </div>
+        ) : apiKeyInfo?.has_key ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <code className="bg-codex-tan/50 px-3 py-2 font-mono text-sm" style={{ borderRadius: "2px" }}>
+                {apiKeyInfo.key_preview}
+              </code>
+              <span className="text-sm text-codex-brown/60">
+                Created {apiKeyInfo.created ? formatDate(apiKeyInfo.created) : ""}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => generateKeyMutation.mutate()}
+                disabled={generateKeyMutation.isPending}
+                className="btn-secondary flex items-center gap-1"
+              >
+                <RefreshCw className={`w-4 h-4 ${generateKeyMutation.isPending ? "animate-spin" : ""}`} />
+                Regenerate
+              </button>
+              <button
+                onClick={() => revokeKeyMutation.mutate()}
+                disabled={revokeKeyMutation.isPending}
+                className="btn-ghost text-red-700 hover:bg-red-50 flex items-center gap-1"
+              >
+                <Trash2 className="w-4 h-4" />
+                Revoke
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => generateKeyMutation.mutate()}
+            disabled={generateKeyMutation.isPending}
+            className="btn-primary flex items-center gap-2"
+          >
+            {generateKeyMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Key className="w-4 h-4" />
+            )}
+            Generate API Key
+          </button>
+        )}
       </div>
 
       <div className="mb-6">

@@ -61,3 +61,29 @@ export async function confirmPasswordReset(
     new_password2: newPassword2,
   });
 }
+
+export interface APIKeyInfo {
+  has_key: boolean;
+  key_preview: string | null;
+  created: string | null;
+}
+
+export interface APIKeyGenerated {
+  key: string;
+  message: string;
+  created: string;
+}
+
+export async function getAPIKey(): Promise<APIKeyInfo> {
+  const response = await apiClient.get<APIKeyInfo>("/users/api-key/");
+  return response.data;
+}
+
+export async function generateAPIKey(): Promise<APIKeyGenerated> {
+  const response = await apiClient.post<APIKeyGenerated>("/users/api-key/");
+  return response.data;
+}
+
+export async function revokeAPIKey(): Promise<void> {
+  await apiClient.delete("/users/api-key/");
+}
