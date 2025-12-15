@@ -1,6 +1,18 @@
+from dj_rest_auth.registration.serializers import RegisterSerializer
 from rest_framework import serializers
 
 from .models import User
+
+
+class CustomRegisterSerializer(RegisterSerializer):
+    """Custom registration serializer with proper email validation."""
+
+    def validate_email(self, email):
+        """Check if email already exists."""
+        email = super().validate_email(email)
+        if User.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return email
 
 
 class UserSerializer(serializers.ModelSerializer):
