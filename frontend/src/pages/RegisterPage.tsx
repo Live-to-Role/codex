@@ -15,7 +15,18 @@ export function RegisterPage() {
   const registerMutation = useMutation({
     mutationFn: register,
     onSuccess: () => navigate("/"),
-    onError: () => setError("Registration failed. Please try again."),
+    onError: (err: unknown) => {
+      const axiosError = err as { response?: { data?: Record<string, string[]> } };
+      const data = axiosError?.response?.data;
+      if (data) {
+        // Show first error message from response
+        const firstKey = Object.keys(data)[0];
+        const messages = data[firstKey];
+        setError(Array.isArray(messages) ? messages[0] : String(messages));
+      } else {
+        setError("Registration failed. Please try again.");
+      }
+    },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
