@@ -4,11 +4,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.throttling import APIKeyRateThrottle
+
 
 class APIKeyView(APIView):
     """Manage API keys for Grimoire integration."""
 
     permission_classes = [IsAuthenticated]
+    throttle_classes = [APIKeyRateThrottle]
 
     def get(self, request):
         """Get current API key (masked) or indicate none exists."""

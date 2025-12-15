@@ -7,6 +7,9 @@ from rest_framework.views import APIView
 
 from rapidfuzz import fuzz
 
+from apps.core.throttling import IdentifyRateThrottle, SearchRateThrottle
+from apps.api.validators import validate_contribution_data, validate_foreign_key_access
+
 from apps.catalog.models import (
     Author,
     Comment,
@@ -58,6 +61,7 @@ class IdentifyView(APIView):
     """
 
     permission_classes = [AllowAny]
+    throttle_classes = [IdentifyRateThrottle]
 
     def get(self, request):
         serializer = IdentifyRequestSerializer(data=request.query_params)
@@ -560,6 +564,10 @@ class ContributionViewSet(viewsets.ModelViewSet):
         product = data.get("product")
         contribution_data = data.get("data", {})
 
+        # Validate and sanitize contribution data
+        contribution_data = validate_contribution_data(contribution_data, contribution_type)
+        validate_foreign_key_access(contribution_data, request.user)
+
         # Check if user can edit directly (bypass moderation)
         can_edit_directly = self._can_edit_directly(request.user, product, contribution_type)
 
@@ -750,6 +758,7 @@ class SearchView(APIView):
     """
 
     permission_classes = [AllowAny]
+    throttle_classes = [SearchRateThrottle]
 
     def get(self, request):
         query = request.query_params.get("q", "").strip()
