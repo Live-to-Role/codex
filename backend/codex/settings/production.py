@@ -48,4 +48,8 @@ EMAIL_PORT = 465
 EMAIL_USE_SSL = True
 EMAIL_HOST_USER = "resend"
 EMAIL_HOST_PASSWORD = config("RESEND_API_KEY", default="")
-DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@codex.livetorole.com")
+EMAIL_TIMEOUT = 10  # Timeout in seconds to prevent hanging
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@livetorole.com")
+
+# Disable email verification until email is properly configured
+ACCOUNT_EMAIL_VERIFICATION = "none"
