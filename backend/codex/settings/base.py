@@ -185,6 +185,7 @@ REST_AUTH = {
     "JWT_AUTH_COOKIE_USE_CSRF": False,
     "JWT_AUTH_SAMESITE": "Lax",
     "JWT_AUTH_SECURE": not DEBUG,
+    "TOKEN_MODEL": None,  # Using JWT, not token auth
     "USER_DETAILS_SERIALIZER": "apps.users.serializers.UserSerializer",
     "REGISTER_SERIALIZER": "apps.users.serializers.CustomRegisterSerializer",
 }

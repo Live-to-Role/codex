@@ -29,9 +29,10 @@ CSRF_TRUSTED_ORIGINS = config(
 
 CORS_ALLOWED_ORIGINS = config(
     "CORS_ALLOWED_ORIGINS",
-    default="https://codex.livetorole.com",
+    default="https://codex.livetorole.com,https://api.codex.livetorole.com",
     cast=lambda v: [s.strip() for s in v.split(",")],
 )
+CORS_ALLOW_CREDENTIALS = True
 
 SECURE_SSL_REDIRECT = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -72,6 +73,7 @@ REST_AUTH = {
     "JWT_AUTH_SAMESITE": "None",  # Required for cross-subdomain cookies
     "JWT_AUTH_SECURE": True,
     "JWT_AUTH_COOKIE_DOMAIN": ".livetorole.com",
+    "TOKEN_MODEL": None,  # Using JWT, not token auth
     "USER_DETAILS_SERIALIZER": "apps.users.serializers.UserSerializer",
     "REGISTER_SERIALIZER": "apps.users.serializers.CustomRegisterSerializer",
 }
