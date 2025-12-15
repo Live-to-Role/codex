@@ -20,6 +20,8 @@ import { formatDate, formatShortDate } from "@/lib/utils";
 import type { Revision } from "@/api/products";
 import { ProductComments } from "@/components/ProductComments";
 import { RelatedProducts } from "@/components/RelatedProducts";
+import { AdventureRunStatus } from "@/components/AdventureRunStatus";
+import { CommunityNotes } from "@/components/CommunityNotes";
 import { addAffiliateTracking } from "@/lib/affiliate";
 
 export function ProductDetailPage() {
@@ -129,6 +131,8 @@ export function ProductDetailPage() {
               )}
             </div>
           )}
+
+          <AdventureRunStatus productSlug={product.slug} />
         </div>
 
         <div className="md:col-span-2 space-y-6">
@@ -341,6 +345,8 @@ export function ProductDetailPage() {
           </div>
 
           <RelatedProducts productSlug={product.slug} />
+
+          <CommunityNotes productSlug={product.slug} />
 
           <ProductComments productSlug={product.slug} />
         </div>

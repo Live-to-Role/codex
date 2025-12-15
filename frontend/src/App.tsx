@@ -25,6 +25,7 @@ import { ProductCreatePage } from "./pages/ProductCreatePage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
+import { MyRunsPage } from "./pages/MyRunsPage";
 
 export default function App() {
   return (
@@ -53,6 +54,7 @@ export default function App() {
         <Route path="/series" element={<SeriesPage />} />
         <Route path="/series/:slug" element={<SeriesDetailPage />} />
         <Route path="/dashboard" element={<PublisherDashboardPage />} />
+        <Route path="/my-runs" element={<MyRunsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Layout>

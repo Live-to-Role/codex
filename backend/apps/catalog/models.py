@@ -1,6 +1,7 @@
 import uuid
 
 from django.conf import settings
+from django.core.validators import MaxLengthValidator, MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils.text import slugify
 
@@ -616,3 +617,251 @@ class Comment(models.Model):
 
     def __str__(self):
         return f"Comment by {self.user} on {self.product.title}"
+
+
+class RunStatus(models.TextChoices):
+    """Status of an adventure run."""
+
+    WANT_TO_RUN = "want_to_run", "Want to Run"
+    RUNNING = "running", "Currently Running"
+    COMPLETED = "completed", "Completed"
+
+
+class RunDifficulty(models.TextChoices):
+    """Difficulty rating for a completed adventure run."""
+
+    EASIER = "easier", "Easier than Expected"
+    AS_WRITTEN = "as_written", "As Written"
+    HARDER = "harder", "Harder than Expected"
+
+
+class NoteType(models.TextChoices):
+    """Types of community notes."""
+
+    PREP_TIP = "prep_tip", "Prep Tip"
+    MODIFICATION = "modification", "Modification"
+    WARNING = "warning", "Warning"
+    REVIEW = "review", "Review"
+
+
+class SpoilerLevel(models.TextChoices):
+    """Spoiler levels for community notes."""
+
+    NONE = "none", "No Spoilers"
+    MINOR = "minor", "Minor Spoilers"
+    MAJOR = "major", "Major Spoilers"
+    ENDGAME = "endgame", "Endgame Spoilers"
+
+
+class NoteVisibility(models.TextChoices):
+    """Visibility options for community notes."""
+
+    ANONYMOUS = "anonymous", "Anonymous"
+    PUBLIC = "public", "Public"
+
+
+class AdventureRun(models.Model):
+    """Tracks a user's experience running a product."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="adventure_runs",
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="adventure_runs",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=RunStatus.choices,
+        default=RunStatus.WANT_TO_RUN,
+    )
+    rating = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="1-5 stars: would run again rating",
+    )
+    difficulty = models.CharField(
+        max_length=20,
+        choices=RunDifficulty.choices,
+        blank=True,
+    )
+
+    session_count = models.PositiveIntegerField(null=True, blank=True)
+    player_count = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1), MaxValueValidator(20)],
+    )
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ["user", "product"]
+        ordering = ["-updated_at"]
+        verbose_name = "adventure run"
+        verbose_name_plural = "adventure runs"
+        indexes = [
+            models.Index(fields=["product", "status"]),
+            models.Index(fields=["user"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user} - {self.product.title} ({self.get_status_display()})"
+
+
+class CommunityNote(models.Model):
+    """GM notes shared with the community."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    adventure_run = models.ForeignKey(
+        AdventureRun,
+        on_delete=models.CASCADE,
+        related_name="notes",
+    )
+    grimoire_note_id = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Reference to source note in Grimoire",
+    )
+
+    note_type = models.CharField(
+        max_length=20,
+        choices=NoteType.choices,
+    )
+    title = models.CharField(max_length=255)
+    content = models.TextField(
+        validators=[MaxLengthValidator(20000)],
+    )
+    spoiler_level = models.CharField(
+        max_length=20,
+        choices=SpoilerLevel.choices,
+        default=SpoilerLevel.NONE,
+    )
+    visibility = models.CharField(
+        max_length=20,
+        choices=NoteVisibility.choices,
+        default=NoteVisibility.PUBLIC,
+    )
+
+    upvote_count = models.PositiveIntegerField(default=0)
+
+    is_flagged = models.BooleanField(default=False)
+    flag_count = models.PositiveIntegerField(default=0)
+    is_hidden = models.BooleanField(
+        default=False,
+        help_text="Hidden by moderator",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-upvote_count", "-created_at"]
+        verbose_name = "community note"
+        verbose_name_plural = "community notes"
+        indexes = [
+            models.Index(fields=["adventure_run"]),
+            models.Index(fields=["note_type"]),
+            models.Index(fields=["spoiler_level"]),
+            models.Index(fields=["is_flagged"]),
+        ]
+
+    def __str__(self):
+        return f"{self.title} - {self.get_note_type_display()}"
+
+    @property
+    def product(self):
+        """Get the product this note is for."""
+        return self.adventure_run.product
+
+    @property
+    def author(self):
+        """Get the author (user) of this note."""
+        return self.adventure_run.user
+
+
+class NoteVote(models.Model):
+    """Tracks upvotes on community notes."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="note_votes",
+    )
+    note = models.ForeignKey(
+        CommunityNote,
+        on_delete=models.CASCADE,
+        related_name="votes",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ["user", "note"]
+        verbose_name = "note vote"
+        verbose_name_plural = "note votes"
+
+    def __str__(self):
+        return f"{self.user} upvoted {self.note.title}"
+
+
+class FlagReason(models.TextChoices):
+    """Reasons for flagging a community note."""
+
+    SPAM = "spam", "Spam"
+    INAPPROPRIATE = "inappropriate", "Inappropriate Content"
+    SPOILER = "spoiler", "Unmarked Spoilers"
+    OFFENSIVE = "offensive", "Offensive Language"
+    OTHER = "other", "Other"
+
+
+class NoteFlag(models.Model):
+    """Content flags for moderation."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="note_flags",
+    )
+    note = models.ForeignKey(
+        CommunityNote,
+        on_delete=models.CASCADE,
+        related_name="flags",
+    )
+    reason = models.CharField(
+        max_length=20,
+        choices=FlagReason.choices,
+    )
+    details = models.TextField(
+        max_length=500,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    reviewed = models.BooleanField(default=False)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_flags",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ["user", "note"]
+        ordering = ["-created_at"]
+        verbose_name = "note flag"
+        verbose_name_plural = "note flags"
+
+    def __str__(self):
+        return f"Flag on {self.note.title} - {self.get_reason_display()}"

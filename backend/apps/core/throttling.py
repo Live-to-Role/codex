@@ -57,3 +57,30 @@ class IdentifyRateThrottle(AnonRateThrottle):
     """
     rate = "60/minute"
     scope = "identify"
+
+
+class NoteCreateRateThrottle(UserRateThrottle):
+    """
+    Rate limiting for community note creation to prevent spam.
+    Limits: 10 notes per hour per user.
+    """
+    rate = "10/hour"
+    scope = "note_create"
+
+
+class NoteVoteRateThrottle(UserRateThrottle):
+    """
+    Rate limiting for voting on community notes.
+    Limits: 100 votes per hour per user.
+    """
+    rate = "100/hour"
+    scope = "note_vote"
+
+
+class NoteFlagRateThrottle(UserRateThrottle):
+    """
+    Rate limiting for flagging community notes.
+    Limits: 20 flags per hour per user.
+    """
+    rate = "20/hour"
+    scope = "note_flag"

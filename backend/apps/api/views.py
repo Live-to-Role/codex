@@ -7,15 +7,25 @@ from rest_framework.views import APIView
 
 from rapidfuzz import fuzz
 
-from apps.core.throttling import IdentifyRateThrottle, SearchRateThrottle
+from apps.core.throttling import (
+    IdentifyRateThrottle,
+    NoteCreateRateThrottle,
+    NoteFlagRateThrottle,
+    NoteVoteRateThrottle,
+    SearchRateThrottle,
+)
 from apps.api.validators import validate_contribution_data, validate_foreign_key_access
 
 from apps.catalog.models import (
+    AdventureRun,
     Author,
     Comment,
+    CommunityNote,
     Contribution,
     FileHash,
     GameSystem,
+    NoteFlag,
+    NoteVote,
     Product,
     ProductCredit,
     ProductImage,
@@ -23,14 +33,20 @@ from apps.catalog.models import (
     ProductSeries,
     Publisher,
     Revision,
+    SpoilerLevel,
 )
 from apps.catalog.permissions import CanModerateContribution, get_moderation_queryset
 
 from .serializers import (
+    AdventureRunCreateSerializer,
+    AdventureRunSerializer,
     AuthorDetailSerializer,
     AuthorListSerializer,
     CommentCreateSerializer,
     CommentSerializer,
+    CommunityNoteCreateSerializer,
+    CommunityNoteSerializer,
+    CommunityNoteUpdateSerializer,
     ContributionCreateSerializer,
     ContributionReviewSerializer,
     ContributionSerializer,
@@ -39,6 +55,8 @@ from .serializers import (
     GameSystemDetailSerializer,
     GameSystemListSerializer,
     IdentifyRequestSerializer,
+    NoteFlagCreateSerializer,
+    NoteFlagSerializer,
     ProductDetailSerializer,
     ProductImageSerializer,
     ProductListSerializer,
@@ -506,6 +524,287 @@ class ProductViewSet(viewsets.ModelViewSet):
         relations = ProductRelation.objects.filter(from_product=product).select_related("to_product")
         serializer = ProductRelationSerializer(relations, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=["get", "post"], url_path="adventure-run")
+    def adventure_run(self, request, slug=None):
+        """
+        GET: Get current user's adventure run for this product.
+        POST: Create or update adventure run for this product.
+        """
+        product = self.get_object()
+
+        if request.method == "GET":
+            if not request.user.is_authenticated:
+                return Response(None)
+
+            try:
+                run = AdventureRun.objects.select_related("product").get(
+                    user=request.user,
+                    product=product,
+                )
+                return Response(AdventureRunSerializer(run).data)
+            except AdventureRun.DoesNotExist:
+                return Response(None)
+
+        if not request.user.is_authenticated:
+            return Response(
+                {"detail": "Authentication required."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        try:
+            run = AdventureRun.objects.get(user=request.user, product=product)
+            serializer = AdventureRunCreateSerializer(run, data=request.data, partial=True)
+        except AdventureRun.DoesNotExist:
+            serializer = AdventureRunCreateSerializer(data=request.data)
+
+        serializer.is_valid(raise_exception=True)
+
+        if hasattr(serializer, "instance") and serializer.instance:
+            run = serializer.save()
+        else:
+            run = AdventureRun.objects.create(
+                user=request.user,
+                product=product,
+                **serializer.validated_data,
+            )
+
+        return Response(
+            AdventureRunSerializer(run).data,
+            status=status.HTTP_200_OK if hasattr(serializer, "instance") else status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=["get", "post"], url_path="community-notes")
+    def community_notes(self, request, slug=None):
+        """
+        GET: List community notes for this product.
+        POST: Create a community note (requires adventure run).
+        """
+        product = self.get_object()
+
+        if request.method == "GET":
+            notes = CommunityNote.objects.filter(
+                adventure_run__product=product,
+                is_hidden=False,
+            ).select_related(
+                "adventure_run",
+                "adventure_run__user",
+                "adventure_run__product",
+            )
+
+            spoiler_max = request.query_params.get("spoiler_max", "endgame")
+            spoiler_order = ["none", "minor", "major", "endgame"]
+            if spoiler_max in spoiler_order:
+                allowed_levels = spoiler_order[: spoiler_order.index(spoiler_max) + 1]
+                notes = notes.filter(spoiler_level__in=allowed_levels)
+
+            note_type = request.query_params.get("note_type")
+            if note_type:
+                notes = notes.filter(note_type=note_type)
+
+            sort = request.query_params.get("sort", "most_votes")
+            if sort == "most_votes":
+                notes = notes.order_by("-upvote_count", "-created_at")
+            elif sort == "least_votes":
+                notes = notes.order_by("upvote_count", "-created_at")
+            elif sort == "newest":
+                notes = notes.order_by("-created_at")
+            elif sort == "oldest":
+                notes = notes.order_by("created_at")
+
+            page = int(request.query_params.get("page", 1))
+            per_page = min(int(request.query_params.get("per_page", 20)), 50)
+            start = (page - 1) * per_page
+            end = start + per_page
+
+            total = notes.count()
+            notes = notes[start:end]
+
+            serializer = CommunityNoteSerializer(
+                notes,
+                many=True,
+                context={"request": request},
+            )
+
+            return Response({
+                "results": serializer.data,
+                "total": total,
+                "page": page,
+                "per_page": per_page,
+                "total_pages": (total + per_page - 1) // per_page,
+            })
+
+        if not request.user.is_authenticated:
+            return Response(
+                {"detail": "Authentication required."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        try:
+            run = AdventureRun.objects.get(user=request.user, product=product)
+        except AdventureRun.DoesNotExist:
+            return Response(
+                {"detail": "You must add this product to your runs before creating notes."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = CommunityNoteCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        note = CommunityNote.objects.create(
+            adventure_run=run,
+            **serializer.validated_data,
+        )
+
+        return Response(
+            CommunityNoteSerializer(note, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class CommunityNoteViewSet(viewsets.ModelViewSet):
+    """ViewSet for community notes with voting and flagging."""
+
+    queryset = CommunityNote.objects.filter(is_hidden=False).select_related(
+        "adventure_run",
+        "adventure_run__user",
+        "adventure_run__product",
+    )
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    serializer_class = CommunityNoteSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.action in ["update", "partial_update", "destroy"]:
+            if self.request.user.is_authenticated:
+                if not (self.request.user.is_superuser or getattr(self.request.user, "is_moderator", False)):
+                    queryset = queryset.filter(adventure_run__user=self.request.user)
+        return queryset
+
+    def get_serializer_class(self):
+        if self.action in ["create"]:
+            return CommunityNoteCreateSerializer
+        if self.action in ["update", "partial_update"]:
+            return CommunityNoteUpdateSerializer
+        return CommunityNoteSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["request"] = self.request
+        return context
+
+    def update(self, request, *args, **kwargs):
+        """Update own note only."""
+        note = self.get_object()
+        if note.adventure_run.user != request.user:
+            if not (request.user.is_superuser or getattr(request.user, "is_moderator", False)):
+                return Response(
+                    {"detail": "You can only edit your own notes."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        """Delete own note only."""
+        note = self.get_object()
+        if note.adventure_run.user != request.user:
+            if not (request.user.is_superuser or getattr(request.user, "is_moderator", False)):
+                return Response(
+                    {"detail": "You can only delete your own notes."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        return super().destroy(request, *args, **kwargs)
+
+    @action(detail=True, methods=["post", "delete"], throttle_classes=[NoteVoteRateThrottle])
+    def vote(self, request, pk=None):
+        """Add or remove upvote on a note."""
+        if not request.user.is_authenticated:
+            return Response(
+                {"detail": "Authentication required."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        note = self.get_object()
+
+        if note.adventure_run.user == request.user:
+            return Response(
+                {"detail": "You cannot vote on your own note."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if request.method == "POST":
+            vote, created = NoteVote.objects.get_or_create(
+                user=request.user,
+                note=note,
+            )
+            if created:
+                note.upvote_count += 1
+                note.save(update_fields=["upvote_count"])
+                return Response({"voted": True, "upvote_count": note.upvote_count})
+            return Response({"voted": True, "upvote_count": note.upvote_count})
+
+        try:
+            vote = NoteVote.objects.get(user=request.user, note=note)
+            vote.delete()
+            note.upvote_count = max(0, note.upvote_count - 1)
+            note.save(update_fields=["upvote_count"])
+            return Response({"voted": False, "upvote_count": note.upvote_count})
+        except NoteVote.DoesNotExist:
+            return Response({"voted": False, "upvote_count": note.upvote_count})
+
+    @action(detail=True, methods=["post"], throttle_classes=[NoteFlagRateThrottle])
+    def flag(self, request, pk=None):
+        """Flag a note for moderation."""
+        if not request.user.is_authenticated:
+            return Response(
+                {"detail": "Authentication required."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        note = self.get_object()
+
+        if note.adventure_run.user == request.user:
+            return Response(
+                {"detail": "You cannot flag your own note."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if NoteFlag.objects.filter(user=request.user, note=note).exists():
+            return Response(
+                {"detail": "You have already flagged this note."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = NoteFlagCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        NoteFlag.objects.create(
+            user=request.user,
+            note=note,
+            **serializer.validated_data,
+        )
+
+        note.flag_count += 1
+        if note.flag_count >= 3:
+            note.is_flagged = True
+        note.save(update_fields=["flag_count", "is_flagged"])
+
+        return Response({"flagged": True}, status=status.HTTP_201_CREATED)
+
+
+class AdventureRunViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet for listing user's adventure runs."""
+
+    queryset = AdventureRun.objects.select_related(
+        "product",
+        "product__publisher",
+        "product__game_system",
+    ).prefetch_related("notes")
+    permission_classes = [IsAuthenticated]
+    serializer_class = AdventureRunSerializer
+
+    def get_queryset(self):
+        return super().get_queryset().filter(user=self.request.user)
 
 
 class ProductSeriesViewSet(viewsets.ReadOnlyModelViewSet):

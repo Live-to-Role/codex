@@ -1,11 +1,16 @@
 from rest_framework import serializers
 
 from apps.catalog.models import (
+    AdventureRun,
     Author,
     Comment,
+    CommunityNote,
     Contribution,
     FileHash,
+    FlagReason,
     GameSystem,
+    NoteFlag,
+    NoteVote,
     Product,
     ProductCredit,
     ProductImage,
@@ -520,3 +525,241 @@ class ProductRelationSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductRelation
         fields = ["id", "to_product", "relation_type", "relation_type_display", "notes"]
+
+
+class AdventureRunSerializer(serializers.ModelSerializer):
+    """Serializer for adventure runs."""
+
+    product = ProductListSerializer(read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    difficulty_display = serializers.CharField(source="get_difficulty_display", read_only=True)
+    note_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AdventureRun
+        fields = [
+            "id",
+            "product",
+            "status",
+            "status_display",
+            "rating",
+            "difficulty",
+            "difficulty_display",
+            "session_count",
+            "player_count",
+            "completed_at",
+            "note_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def get_note_count(self, obj):
+        return obj.notes.filter(is_hidden=False).count()
+
+
+class AdventureRunCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating/updating adventure runs."""
+
+    class Meta:
+        model = AdventureRun
+        fields = [
+            "status",
+            "rating",
+            "difficulty",
+            "session_count",
+            "player_count",
+            "completed_at",
+        ]
+
+    def validate_rating(self, value):
+        if value is not None and (value < 1 or value > 5):
+            raise serializers.ValidationError("Rating must be between 1 and 5.")
+        return value
+
+    def validate_player_count(self, value):
+        if value is not None and (value < 1 or value > 20):
+            raise serializers.ValidationError("Player count must be between 1 and 20.")
+        return value
+
+    def validate(self, attrs):
+        status = attrs.get("status")
+        rating = attrs.get("rating")
+        difficulty = attrs.get("difficulty")
+
+        if status != "completed" and (rating is not None or difficulty):
+            raise serializers.ValidationError(
+                "Rating and difficulty can only be set for completed runs."
+            )
+
+        return attrs
+
+
+class CommunityNoteSerializer(serializers.ModelSerializer):
+    """Serializer for community notes."""
+
+    author = serializers.SerializerMethodField()
+    product_slug = serializers.CharField(source="adventure_run.product.slug", read_only=True)
+    product_title = serializers.CharField(source="adventure_run.product.title", read_only=True)
+    note_type_display = serializers.CharField(source="get_note_type_display", read_only=True)
+    spoiler_level_display = serializers.CharField(source="get_spoiler_level_display", read_only=True)
+    visibility_display = serializers.CharField(source="get_visibility_display", read_only=True)
+    user_has_voted = serializers.SerializerMethodField()
+    is_own_note = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CommunityNote
+        fields = [
+            "id",
+            "adventure_run",
+            "product_slug",
+            "product_title",
+            "author",
+            "note_type",
+            "note_type_display",
+            "title",
+            "content",
+            "spoiler_level",
+            "spoiler_level_display",
+            "visibility",
+            "visibility_display",
+            "upvote_count",
+            "user_has_voted",
+            "is_own_note",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "adventure_run",
+            "upvote_count",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_author(self, obj):
+        """Return author info based on visibility setting."""
+        if obj.visibility == "anonymous":
+            return {"public_name": "Anonymous GM"}
+
+        user = obj.adventure_run.user
+        return {
+            "id": str(user.id),
+            "public_name": user.public_name,
+            "avatar_url": user.avatar_url or None,
+        }
+
+    def get_user_has_voted(self, obj):
+        """Check if current user has voted on this note."""
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return NoteVote.objects.filter(user=request.user, note=obj).exists()
+
+    def get_is_own_note(self, obj):
+        """Check if current user is the author of this note."""
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.adventure_run.user_id == request.user.id
+
+
+class CommunityNoteCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating community notes."""
+
+    class Meta:
+        model = CommunityNote
+        fields = [
+            "note_type",
+            "title",
+            "content",
+            "spoiler_level",
+            "visibility",
+            "grimoire_note_id",
+        ]
+
+    def validate_title(self, value):
+        import bleach
+        value = bleach.clean(value, tags=[], strip=True).strip()
+        if not value:
+            raise serializers.ValidationError("Title is required.")
+        if len(value) > 255:
+            raise serializers.ValidationError("Title must be 255 characters or less.")
+        return value
+
+    def validate_content(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Content is required.")
+        if len(value) > 20000:
+            raise serializers.ValidationError("Content must be 20,000 characters or less.")
+        return value.strip()
+
+
+class CommunityNoteUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating community notes."""
+
+    class Meta:
+        model = CommunityNote
+        fields = [
+            "note_type",
+            "title",
+            "content",
+            "spoiler_level",
+            "visibility",
+        ]
+
+    def validate_title(self, value):
+        import bleach
+        value = bleach.clean(value, tags=[], strip=True).strip()
+        if not value:
+            raise serializers.ValidationError("Title is required.")
+        if len(value) > 255:
+            raise serializers.ValidationError("Title must be 255 characters or less.")
+        return value
+
+    def validate_content(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Content is required.")
+        if len(value) > 20000:
+            raise serializers.ValidationError("Content must be 20,000 characters or less.")
+        return value.strip()
+
+
+class NoteFlagCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating note flags."""
+
+    class Meta:
+        model = NoteFlag
+        fields = ["reason", "details"]
+
+    def validate_details(self, value):
+        import bleach
+        if value:
+            value = bleach.clean(value, tags=[], strip=True).strip()
+            if len(value) > 500:
+                raise serializers.ValidationError("Details must be 500 characters or less.")
+        return value
+
+
+class NoteFlagSerializer(serializers.ModelSerializer):
+    """Serializer for viewing note flags (admin)."""
+
+    user = UserPublicSerializer(read_only=True)
+    note = CommunityNoteSerializer(read_only=True)
+    reason_display = serializers.CharField(source="get_reason_display", read_only=True)
+    reviewed_by = UserPublicSerializer(read_only=True)
+
+    class Meta:
+        model = NoteFlag
+        fields = [
+            "id",
+            "user",
+            "note",
+            "reason",
+            "reason_display",
+            "details",
+            "created_at",
+            "reviewed",
+            "reviewed_by",
+            "reviewed_at",
+        ]

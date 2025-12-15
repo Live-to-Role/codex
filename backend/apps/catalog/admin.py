@@ -1,10 +1,15 @@
 from django.contrib import admin
+from django.utils import timezone
 
 from .models import (
+    AdventureRun,
     Author,
+    CommunityNote,
     Contribution,
     FileHash,
     GameSystem,
+    NoteFlag,
+    NoteVote,
     Product,
     ProductCredit,
     ProductRelation,
@@ -178,3 +183,137 @@ class ContributionAdmin(admin.ModelAdmin):
     @admin.action(description="Reject selected contributions")
     def reject_contributions(self, request, queryset):
         queryset.update(status="rejected", reviewed_by=request.user)
+
+
+class CommunityNoteInline(admin.TabularInline):
+    model = CommunityNote
+    extra = 0
+    readonly_fields = ["title", "note_type", "spoiler_level", "upvote_count", "created_at"]
+    fields = ["title", "note_type", "spoiler_level", "upvote_count", "is_hidden", "created_at"]
+
+
+@admin.register(AdventureRun)
+class AdventureRunAdmin(admin.ModelAdmin):
+    list_display = ["user", "product", "status", "rating", "difficulty", "created_at"]
+    list_filter = ["status", "difficulty", "rating"]
+    search_fields = ["user__email", "user__username", "product__title"]
+    readonly_fields = ["created_at", "updated_at"]
+    autocomplete_fields = ["user", "product"]
+    inlines = [CommunityNoteInline]
+
+    fieldsets = (
+        (None, {"fields": ("user", "product", "status")}),
+        (
+            "Run Details",
+            {"fields": ("rating", "difficulty", "session_count", "player_count", "completed_at")},
+        ),
+        (
+            "Metadata",
+            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
+        ),
+    )
+
+
+class NoteFlagInline(admin.TabularInline):
+    model = NoteFlag
+    extra = 0
+    readonly_fields = ["user", "reason", "details", "created_at", "reviewed", "reviewed_by", "reviewed_at"]
+    fields = ["user", "reason", "details", "reviewed", "reviewed_by", "reviewed_at", "created_at"]
+
+
+@admin.register(CommunityNote)
+class CommunityNoteAdmin(admin.ModelAdmin):
+    list_display = [
+        "title",
+        "note_type",
+        "get_author",
+        "get_product",
+        "spoiler_level",
+        "upvote_count",
+        "is_flagged",
+        "is_hidden",
+        "created_at",
+    ]
+    list_filter = ["note_type", "spoiler_level", "visibility", "is_flagged", "is_hidden"]
+    search_fields = ["title", "content", "adventure_run__user__email", "adventure_run__product__title"]
+    readonly_fields = ["upvote_count", "flag_count", "created_at", "updated_at"]
+    inlines = [NoteFlagInline]
+    actions = ["hide_notes", "unhide_notes"]
+
+    fieldsets = (
+        (None, {"fields": ("adventure_run", "note_type", "title", "content")}),
+        (
+            "Visibility & Spoilers",
+            {"fields": ("spoiler_level", "visibility")},
+        ),
+        (
+            "Moderation",
+            {"fields": ("is_flagged", "flag_count", "is_hidden")},
+        ),
+        (
+            "Stats",
+            {"fields": ("upvote_count", "grimoire_note_id"), "classes": ("collapse",)},
+        ),
+        (
+            "Metadata",
+            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
+        ),
+    )
+
+    @admin.display(description="Author")
+    def get_author(self, obj):
+        return obj.adventure_run.user.email
+
+    @admin.display(description="Product")
+    def get_product(self, obj):
+        return obj.adventure_run.product.title
+
+    @admin.action(description="Hide selected notes")
+    def hide_notes(self, request, queryset):
+        queryset.update(is_hidden=True)
+
+    @admin.action(description="Unhide selected notes")
+    def unhide_notes(self, request, queryset):
+        queryset.update(is_hidden=False, is_flagged=False)
+
+
+@admin.register(NoteVote)
+class NoteVoteAdmin(admin.ModelAdmin):
+    list_display = ["user", "note", "created_at"]
+    search_fields = ["user__email", "note__title"]
+    readonly_fields = ["created_at"]
+
+
+@admin.register(NoteFlag)
+class NoteFlagAdmin(admin.ModelAdmin):
+    list_display = ["note", "user", "reason", "reviewed", "reviewed_by", "created_at"]
+    list_filter = ["reason", "reviewed"]
+    search_fields = ["note__title", "user__email", "details"]
+    readonly_fields = ["created_at"]
+    actions = ["mark_reviewed_approve", "mark_reviewed_hide"]
+
+    fieldsets = (
+        (None, {"fields": ("note", "user", "reason", "details")}),
+        (
+            "Review",
+            {"fields": ("reviewed", "reviewed_by", "reviewed_at")},
+        ),
+        (
+            "Metadata",
+            {"fields": ("created_at",), "classes": ("collapse",)},
+        ),
+    )
+
+    @admin.action(description="Mark as reviewed (approve note)")
+    def mark_reviewed_approve(self, request, queryset):
+        queryset.update(reviewed=True, reviewed_by=request.user, reviewed_at=timezone.now())
+
+    @admin.action(description="Mark as reviewed and hide note")
+    def mark_reviewed_hide(self, request, queryset):
+        for flag in queryset:
+            flag.reviewed = True
+            flag.reviewed_by = request.user
+            flag.reviewed_at = timezone.now()
+            flag.save()
+            flag.note.is_hidden = True
+            flag.note.save(update_fields=["is_hidden"])
