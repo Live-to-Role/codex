@@ -61,3 +61,11 @@ ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = False
 ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 3
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
+
+# Override REST_AUTH for production - add cookie domain for cross-subdomain auth
+from .base import REST_AUTH
+REST_AUTH = {
+    **REST_AUTH,
+    "JWT_AUTH_COOKIE_DOMAIN": ".livetorole.com",
+}
+
