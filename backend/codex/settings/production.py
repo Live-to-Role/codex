@@ -44,12 +44,15 @@ SECURE_HSTS_PRELOAD = True
 # Email configuration (Resend)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.resend.com"
-EMAIL_PORT = 465
-EMAIL_USE_SSL = True
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "resend"
 EMAIL_HOST_PASSWORD = config("RESEND_API_KEY", default="")
 EMAIL_TIMEOUT = 10  # Timeout in seconds to prevent hanging
-DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@livetorole.com")
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="Codex <noreply@livetorole.com>")
 
-# Disable email verification until email is properly configured
-ACCOUNT_EMAIL_VERIFICATION = "none"
+# Email verification - mandatory before login
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = False
+ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 3
+ACCOUNT_CONFIRM_EMAIL_ON_GET = True
