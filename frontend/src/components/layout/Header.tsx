@@ -64,7 +64,7 @@ export function Header() {
             </form>
 
             {authenticated ? (
-              <Link to="/account" className="btn-ghost">
+              <Link to="/profile" className="btn-ghost">
                 Account
               </Link>
             ) : (
