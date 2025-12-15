@@ -13,7 +13,7 @@ import {
 import { getSystems } from "@/api/systems";
 import { getPublishers } from "@/api/publishers";
 import { submitContribution } from "@/api/contributions";
-import { isAuthenticated } from "@/api/auth";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ProductFormData {
   title: string;
@@ -43,7 +43,7 @@ const PRODUCT_TYPES = [
 
 export function ProductCreatePage() {
   const navigate = useNavigate();
-  const authenticated = isAuthenticated();
+  const { isAuthenticated: authenticated } = useAuth();
 
   const [formData, setFormData] = useState<ProductFormData>({
     title: "",

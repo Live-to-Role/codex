@@ -1,25 +1,28 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
 import { BookOpen, Mail, Lock, Loader2 } from "lucide-react";
-import { login } from "@/api/auth";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const loginMutation = useMutation({
-    mutationFn: login,
-    onSuccess: () => navigate("/"),
-    onError: () => setError("Invalid email or password"),
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    loginMutation.mutate({ email, password });
+    setIsLoading(true);
+    try {
+      await login({ email, password });
+      navigate("/");
+    } catch {
+      setError("Invalid email or password");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -52,8 +55,8 @@ export function LoginPage() {
             </div>
           </div>
 
-          <button type="submit" disabled={loginMutation.isPending} className="btn-primary w-full">
-            {loginMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Enter the Archives"}
+          <button type="submit" disabled={isLoading} className="btn-primary w-full">
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Enter the Archives"}
           </button>
 
           <div className="text-center">

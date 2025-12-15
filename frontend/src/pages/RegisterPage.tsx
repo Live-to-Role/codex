@@ -15,9 +15,7 @@ export function RegisterPage() {
   const registerMutation = useMutation({
     mutationFn: register,
     onSuccess: () => {
-      // Don't auto-login - show email verification message
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
+      // Show email verification message (cookies handled by backend)
       setRegistrationComplete(true);
     },
     onError: (err: unknown) => {

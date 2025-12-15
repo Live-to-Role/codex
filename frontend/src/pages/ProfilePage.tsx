@@ -2,26 +2,27 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { User, BookOpen, Clock, CheckCircle, XCircle, Loader2, Shield, Award, LogOut, Key, Copy, RefreshCw, Trash2 } from "lucide-react";
-import { getCurrentUser, logout, getAPIKey, generateAPIKey, revokeAPIKey } from "@/api/auth";
+import { getAPIKey, generateAPIKey, revokeAPIKey } from "@/api/auth";
 import { getMyContributions } from "@/api/users";
 import { formatDate } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function ProfilePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user, isLoading: userLoading, logout } = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const { data: user, isLoading: userLoading } = useQuery({
-    queryKey: ["currentUser"],
-    queryFn: getCurrentUser,
-  });
-
-  const logoutMutation = useMutation({
-    mutationFn: logout,
-    onSuccess: () => {
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
       queryClient.clear();
       navigate("/");
-    },
-  });
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   const { data: contributions, isLoading: contributionsLoading } = useQuery({
     queryKey: ["myContributions"],
@@ -165,12 +166,12 @@ export function ProfilePage() {
 
             <div className="mt-4 pt-4 border-t border-codex-brown/10">
               <button
-                onClick={() => logoutMutation.mutate()}
-                disabled={logoutMutation.isPending}
+                onClick={handleLogout}
+                disabled={isLoggingOut}
                 className="btn-ghost text-red-700 hover:bg-red-50 flex items-center gap-2"
               >
                 <LogOut className="w-4 h-4" />
-                {logoutMutation.isPending ? "Signing out..." : "Sign Out"}
+                {isLoggingOut ? "Signing out..." : "Sign Out"}
               </button>
             </div>
           </div>

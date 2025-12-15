@@ -1,33 +1,23 @@
 import apiClient from "./client";
-import type { User, AuthTokens, LoginCredentials, RegisterData } from "@/types";
+import type { User, LoginCredentials, RegisterData } from "@/types";
 
-export async function login(credentials: LoginCredentials): Promise<AuthTokens> {
-  const response = await apiClient.post<AuthTokens>("/auth/login/", credentials);
-
-  const { access, refresh } = response.data;
-  localStorage.setItem("access_token", access);
-  localStorage.setItem("refresh_token", refresh);
-
-  return response.data;
+export interface LoginResponse {
+  user: User;
+  access?: string;
+  refresh?: string;
 }
 
-export async function register(data: RegisterData): Promise<AuthTokens> {
-  const response = await apiClient.post<AuthTokens>("/auth/registration/", data);
+export async function login(credentials: LoginCredentials): Promise<User> {
+  const response = await apiClient.post<LoginResponse>("/auth/login/", credentials);
+  return response.data.user;
+}
 
-  const { access, refresh } = response.data;
-  localStorage.setItem("access_token", access);
-  localStorage.setItem("refresh_token", refresh);
-
-  return response.data;
+export async function register(data: RegisterData): Promise<void> {
+  await apiClient.post("/auth/registration/", data);
 }
 
 export async function logout(): Promise<void> {
-  try {
-    await apiClient.post("/auth/logout/");
-  } finally {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-  }
+  await apiClient.post("/auth/logout/");
 }
 
 export async function getCurrentUser(): Promise<User> {
@@ -40,8 +30,13 @@ export async function updateCurrentUser(data: Partial<User>): Promise<User> {
   return response.data;
 }
 
-export function isAuthenticated(): boolean {
-  return !!localStorage.getItem("access_token");
+export async function isAuthenticated(): Promise<boolean> {
+  try {
+    await getCurrentUser();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {
