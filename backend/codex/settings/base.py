@@ -5,6 +5,7 @@ Django base settings for Codex project.
 import os
 from pathlib import Path
 
+import dj_database_url
 from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -81,14 +82,11 @@ TEMPLATES = [
 WSGI_APPLICATION = "codex.wsgi.application"
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("DB_NAME", default="codex"),
-        "USER": config("DB_USER"),
-        "PASSWORD": config("DB_PASSWORD"),
-        "HOST": config("DB_HOST", default="localhost"),
-        "PORT": config("DB_PORT", default="5432"),
-    }
+    "default": dj_database_url.config(
+        default=config("DATABASE_URL", default=""),
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -197,6 +195,13 @@ CORS_ALLOWED_ORIGINS = config(
     cast=lambda v: [s.strip() for s in v.split(",")],
 )
 CORS_ALLOW_CREDENTIALS = True
+
+# Cloudflare R2 Storage Configuration
+R2_ACCESS_KEY_ID = config("R2_ACCESS_KEY_ID", default="")
+R2_SECRET_ACCESS_KEY = config("R2_SECRET_ACCESS_KEY", default="")
+R2_BUCKET_NAME = config("R2_BUCKET_NAME", default="")
+R2_ENDPOINT_URL = config("R2_ENDPOINT_URL", default="")
+R2_PUBLIC_URL = config("R2_PUBLIC_URL", default="")  # Your public bucket URL or custom domain
 
 # Logging
 LOGGING = {

@@ -1264,7 +1264,7 @@ class ContributionViewSet(viewsets.ModelViewSet):
     def _create_product_from_data(self, data, user):
         """Create a new product from contribution data."""
         from django.utils.text import slugify
-        import uuid
+        from apps.core.storage import upload_base64_image, generate_thumbnail
 
         title = data.get("title", "Untitled Product")
         base_slug = slugify(title)[:200]
@@ -1289,6 +1289,21 @@ class ContributionViewSet(viewsets.ModelViewSet):
             genres = [data["genre"]] if isinstance(data["genre"], str) else data["genre"]
         if data.get("genres"):
             genres.extend(data["genres"] if isinstance(data["genres"], list) else [data["genres"]])
+        
+        # Handle cover image upload
+        cover_url = ""
+        thumbnail_url = ""
+        if data.get("cover_image_base64"):
+            cover_url = upload_base64_image(
+                data["cover_image_base64"],
+                folder="covers",
+                filename_prefix=slug
+            ) or ""
+            if cover_url:
+                thumbnail_url = generate_thumbnail(
+                    data["cover_image_base64"],
+                    max_size=(300, 400)
+                ) or ""
 
         product = Product.objects.create(
             title=title,
@@ -1300,6 +1315,8 @@ class ContributionViewSet(viewsets.ModelViewSet):
             level_range_max=data.get("level_range_max"),
             dtrpg_url=data.get("dtrpg_url", ""),
             itch_url=data.get("itch_url", ""),
+            cover_url=cover_url,
+            thumbnail_url=thumbnail_url,
             tags=data.get("tags", []),
             themes=data.get("themes", []),
             genres=genres,
