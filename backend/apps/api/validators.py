@@ -53,6 +53,12 @@ VALID_PRODUCT_TYPES = {
     "tools",
     "magazine",
     "core_rules",
+    "core_rulebook",
+    "setting",
+    "character_options",
+    "gm_tools",
+    "map",
+    "zine",
     "screen",
     "other",
 }
@@ -163,12 +169,12 @@ def _validate_field(field: str, value):
                 "data": "msrp must be a number."
             })
     
-    # Product type validation
+    # Product type validation - map unknown types to "other"
     if field == "product_type":
         if value and value not in VALID_PRODUCT_TYPES:
-            raise serializers.ValidationError({
-                "data": f"Invalid product_type. Must be one of: {', '.join(VALID_PRODUCT_TYPES)}"
-            })
+            # Store original value but map to "other" for the enum field
+            # The original value is preserved in the contribution data JSON
+            return "other"
         return value
     
     # Format validation

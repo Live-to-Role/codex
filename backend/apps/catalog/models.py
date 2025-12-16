@@ -132,6 +132,12 @@ class ProductType(models.TextChoices):
     TOOLS = "tools", "Tools"
     MAGAZINE = "magazine", "Magazine"
     CORE_RULES = "core_rules", "Core Rules"
+    CORE_RULEBOOK = "core_rulebook", "Core Rulebook"
+    SETTING = "setting", "Setting"
+    CHARACTER_OPTIONS = "character_options", "Character Options"
+    GM_TOOLS = "gm_tools", "GM Tools"
+    MAP = "map", "Map"
+    ZINE = "zine", "Zine"
     SCREEN = "screen", "GM Screen"
     OTHER = "other", "Other"
 
