@@ -37,6 +37,7 @@ from apps.catalog.models import (
     ProductImage,
     ProductRelation,
     ProductSeries,
+    ProductStatus,
     Publisher,
     Revision,
     SpoilerLevel,
@@ -1305,7 +1306,7 @@ class ContributionViewSet(viewsets.ModelViewSet):
             author_names=author_names,
             publisher_id=data.get("publisher_id"),
             game_system_id=data.get("game_system_id"),
-            status=Product.ProductStatus.PUBLISHED,
+            status=ProductStatus.PUBLISHED,
             created_by=user,
         )
 
