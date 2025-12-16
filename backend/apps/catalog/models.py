@@ -107,6 +107,8 @@ class GameSystem(models.Model):
         help_text="Parent system for variants/hacks",
     )
     year_released = models.PositiveIntegerField(null=True, blank=True)
+    logo_url = models.URLField(max_length=500, blank=True)
+    website_url = models.URLField(max_length=500, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

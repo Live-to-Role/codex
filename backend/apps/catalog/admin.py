@@ -179,6 +179,7 @@ class ContributionAdmin(admin.ModelAdmin):
         "reject_contributions",
         "approve_from_trusted_users",
         "approve_grimoire_contributions",
+        "reprocess_orphaned_approvals",
     ]
 
     @admin.display(description="Title")
@@ -346,6 +347,23 @@ class ContributionAdmin(admin.ModelAdmin):
             approved_count += 1
 
         self.message_user(request, f"Approved {approved_count} Grimoire contribution(s).")
+
+    @admin.action(description="Re-process approved contributions missing products")
+    def reprocess_orphaned_approvals(self, request, queryset):
+        """Create products for approved new_product contributions that have no linked product."""
+        orphaned = queryset.filter(
+            status="approved",
+            contribution_type="new_product",
+            product__isnull=True,
+        )
+        created_count = 0
+        for contribution in orphaned:
+            product = self._create_product_from_data(contribution.data, contribution.user)
+            contribution.product = product
+            contribution.save(update_fields=["product"])
+            created_count += 1
+
+        self.message_user(request, f"Created {created_count} product(s) from orphaned approvals.")
 
 
 class CommunityNoteInline(admin.TabularInline):
