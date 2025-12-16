@@ -36,6 +36,12 @@ ALLOWED_PRODUCT_FIELDS = {
     # Grimoire sends these as string names (not UUIDs)
     "publisher",
     "game_system",
+    # Grimoire additional fields
+    "cover_image_base64",  # Base64 encoded cover image (max 500KB)
+    "author",  # Author name(s) as string or list
+    "authors",  # Alternative: list of author names
+    "genre",  # Genre as string or list
+    "genres",  # Alternative: list of genres
 }
 
 # Valid product types (must match ProductType choices)
@@ -107,6 +113,8 @@ def _validate_field(field: str, value):
         "thumbnail_url": 500,
         "publisher": 255,  # Grimoire sends publisher name as string
         "game_system": 255,  # Grimoire sends game system name as string
+        "author": 500,  # Grimoire sends author name(s) as string
+        "genre": 255,  # Grimoire sends genre as string
     }
     
     if field in string_fields:
@@ -172,8 +180,8 @@ def _validate_field(field: str, value):
             })
         return value
     
-    # List fields (tags, themes, content_warnings)
-    list_fields = {"tags", "themes", "content_warnings"}
+    # List fields (tags, themes, content_warnings, authors, genres)
+    list_fields = {"tags", "themes", "content_warnings", "authors", "genres"}
     if field in list_fields:
         if value is None:
             return []
@@ -229,6 +237,38 @@ def _validate_field(field: str, value):
             "data": "publication_date must be a string in YYYY-MM-DD format."
         })
     
+    # Base64 cover image (max 500KB after decoding)
+    if field == "cover_image_base64":
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise serializers.ValidationError({
+                "data": "cover_image_base64 must be a base64 encoded string."
+            })
+        # Check approximate size (base64 is ~4/3 of original size)
+        # 500KB = 512000 bytes, base64 = ~682666 chars
+        max_base64_len = 700000
+        if len(value) > max_base64_len:
+            raise serializers.ValidationError({
+                "data": "cover_image_base64 exceeds maximum size of 500KB."
+            })
+        # Validate it's valid base64
+        import base64
+        try:
+            # Remove data URL prefix if present
+            if value.startswith("data:"):
+                value = value.split(",", 1)[1] if "," in value else value
+            decoded = base64.b64decode(value)
+            if len(decoded) > 512000:  # 500KB
+                raise serializers.ValidationError({
+                    "data": "cover_image_base64 exceeds maximum size of 500KB."
+                })
+        except Exception:
+            raise serializers.ValidationError({
+                "data": "cover_image_base64 is not valid base64."
+            })
+        return value
+    
     return value
 
 
@@ -256,3 +296,32 @@ def validate_foreign_key_access(data: dict, user) -> None:
             raise serializers.ValidationError({
                 "data": "Referenced game system does not exist."
             })
+
+
+def validate_contribution_adds_value(contribution_data: dict, existing_product) -> bool:
+    """
+    Check that contribution adds meaningful data to an existing product.
+    
+    Returns True if the contribution has new/better data, False if redundant.
+    """
+    dominated_fields = {
+        "title", "description", "page_count", "publication_year",
+        "game_system_id", "product_type", "cover_url", "thumbnail_url",
+    }
+    
+    fields_in_contribution = dominated_fields & set(contribution_data.keys())
+    
+    for field in fields_in_contribution:
+        new_value = contribution_data.get(field)
+        existing_value = getattr(existing_product, field, None)
+        
+        # New value where none existed
+        if new_value and not existing_value:
+            return True
+        
+        # Description: accept if significantly longer
+        if field == "description" and new_value and existing_value:
+            if len(str(new_value)) > len(str(existing_value)) * 1.3:
+                return True
+    
+    return False

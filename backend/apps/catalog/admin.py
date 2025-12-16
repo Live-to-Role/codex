@@ -170,11 +170,23 @@ class RevisionAdmin(admin.ModelAdmin):
 
 @admin.register(Contribution)
 class ContributionAdmin(admin.ModelAdmin):
-    list_display = ["id", "product", "user", "source", "status", "created_at"]
-    list_filter = ["status", "source"]
-    search_fields = ["product__title", "user__email"]
-    readonly_fields = ["created_at"]
-    actions = ["approve_contributions", "reject_contributions"]
+    list_display = ["id", "title_preview", "contribution_type", "user", "source", "status", "created_at"]
+    list_filter = ["status", "source", "contribution_type"]
+    search_fields = ["data__title", "product__title", "user__email"]
+    readonly_fields = ["created_at", "claimed_by", "claimed_at"]
+    actions = [
+        "approve_contributions",
+        "reject_contributions",
+        "approve_from_trusted_users",
+        "approve_grimoire_contributions",
+    ]
+
+    @admin.display(description="Title")
+    def title_preview(self, obj):
+        if obj.product:
+            return obj.product.title[:50]
+        title = obj.data.get("title", "")
+        return title[:50] if title else "(no title)"
 
     def _create_product_from_data(self, data, user):
         """Create a new product from contribution data."""
@@ -203,6 +215,20 @@ class ContributionAdmin(admin.ModelAdmin):
         elif data.get("game_system"):
             game_system = GameSystem.objects.filter(name__iexact=data["game_system"]).first()
         
+        # Handle author field - normalize to list
+        author_names = []
+        if data.get("author"):
+            author_names = [data["author"]] if isinstance(data["author"], str) else data["author"]
+        if data.get("authors"):
+            author_names.extend(data["authors"] if isinstance(data["authors"], list) else [data["authors"]])
+        
+        # Handle genre field - normalize to list
+        genres = []
+        if data.get("genre"):
+            genres = [data["genre"]] if isinstance(data["genre"], str) else data["genre"]
+        if data.get("genres"):
+            genres.extend(data["genres"] if isinstance(data["genres"], list) else [data["genres"]])
+
         product = Product.objects.create(
             title=title,
             slug=slug,
@@ -219,6 +245,9 @@ class ContributionAdmin(admin.ModelAdmin):
             dtrpg_url=data.get("dtrpg_url", ""),
             itch_url=data.get("itch_url", ""),
             tags=data.get("tags", []),
+            themes=data.get("themes", []),
+            genres=genres,
+            author_names=author_names,
             created_by=user,
             status="published",
         )
@@ -256,6 +285,67 @@ class ContributionAdmin(admin.ModelAdmin):
             reviewed_at=timezone.now()
         )
         self.message_user(request, f"Rejected {count} contribution(s).")
+
+    @admin.action(description="Approve all from trusted users (10+ approved)")
+    def approve_from_trusted_users(self, request, queryset):
+        trusted_contributions = queryset.filter(
+            status="pending",
+            user__approved_contribution_count__gte=10,
+            user__trust_revoked=False,
+        )
+        approved_count = 0
+        for contribution in trusted_contributions:
+            if contribution.contribution_type == "new_product":
+                product = self._create_product_from_data(contribution.data, contribution.user)
+                contribution.product = product
+            elif contribution.product:
+                product = contribution.product
+                for field in ["title", "description", "page_count", "level_range_min",
+                              "level_range_max", "dtrpg_url", "itch_url", "tags"]:
+                    if field in contribution.data:
+                        setattr(product, field, contribution.data[field])
+                product.save()
+
+            contribution.status = "approved"
+            contribution.reviewed_by = request.user
+            contribution.reviewed_at = timezone.now()
+            if contribution.user:
+                contribution.user.approved_contribution_count += 1
+                contribution.user.save(update_fields=["approved_contribution_count"])
+            contribution.save()
+            approved_count += 1
+
+        self.message_user(request, f"Approved {approved_count} contribution(s) from trusted users.")
+
+    @admin.action(description="Approve all Grimoire contributions")
+    def approve_grimoire_contributions(self, request, queryset):
+        grimoire_contributions = queryset.filter(
+            status="pending",
+            source="grimoire",
+        )
+        approved_count = 0
+        for contribution in grimoire_contributions:
+            if contribution.contribution_type == "new_product":
+                product = self._create_product_from_data(contribution.data, contribution.user)
+                contribution.product = product
+            elif contribution.product:
+                product = contribution.product
+                for field in ["title", "description", "page_count", "level_range_min",
+                              "level_range_max", "dtrpg_url", "itch_url", "tags"]:
+                    if field in contribution.data:
+                        setattr(product, field, contribution.data[field])
+                product.save()
+
+            contribution.status = "approved"
+            contribution.reviewed_by = request.user
+            contribution.reviewed_at = timezone.now()
+            if contribution.user:
+                contribution.user.approved_contribution_count += 1
+                contribution.user.save(update_fields=["approved_contribution_count"])
+            contribution.save()
+            approved_count += 1
+
+        self.message_user(request, f"Approved {approved_count} Grimoire contribution(s).")
 
 
 class CommunityNoteInline(admin.TabularInline):

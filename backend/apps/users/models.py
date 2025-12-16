@@ -18,10 +18,21 @@ class User(AbstractUser):
     avatar_url = models.URLField(blank=True)
 
     contribution_count = models.PositiveIntegerField(default=0)
+    approved_contribution_count = models.PositiveIntegerField(default=0)
     reputation = models.IntegerField(default=0)
 
     is_moderator = models.BooleanField(default=False)
     is_publisher = models.BooleanField(default=False)
+
+    # Trust system for auto-approval
+    trust_revoked = models.BooleanField(default=False)
+    trust_revoked_at = models.DateTimeField(null=True, blank=True)
+    trust_revoked_reason = models.CharField(max_length=255, blank=True)
+
+    # Security tracking
+    is_flagged = models.BooleanField(default=False)
+    last_contribution_ip = models.GenericIPAddressField(null=True, blank=True)
+    avg_daily_contributions = models.FloatField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -16,7 +16,11 @@ from apps.core.throttling import (
     NoteVoteRateThrottle,
     SearchRateThrottle,
 )
-from apps.api.validators import validate_contribution_data, validate_foreign_key_access
+from apps.api.validators import (
+    validate_contribution_data,
+    validate_contribution_adds_value,
+    validate_foreign_key_access,
+)
 
 from apps.catalog.models import (
     AdventureRun,
@@ -46,6 +50,7 @@ from .serializers import (
     AdventureRunSerializer,
     AuthorDetailSerializer,
     AuthorListSerializer,
+    BatchReviewSerializer,
     CommentCreateSerializer,
     CommentSerializer,
     CommunityNoteCreateSerializer,
@@ -929,18 +934,31 @@ class ContributionViewSet(viewsets.ModelViewSet):
 
             # Check if file_hash matches an existing product
             existing_file_hash = FileHash.objects.filter(hash_sha256=file_hash).select_related("product").first()
-            if existing_file_hash:
+            if existing_file_hash and existing_file_hash.product:
+                existing_product = existing_file_hash.product
+                
+                # Check if contribution adds value to existing product
+                if not validate_contribution_adds_value(contribution_data, existing_product):
+                    logger.info(
+                        "No-change contribution for product=%s (hash=%s)",
+                        existing_product.id,
+                        file_hash[:16] + "...",
+                    )
+                    return Response({
+                        "status": "no_change",
+                        "message": "Product already has complete data. No contribution needed.",
+                        "existing_product_id": str(existing_product.id),
+                        "existing_product_title": existing_product.title,
+                    }, status=status.HTTP_200_OK)
+                
+                # Has new data - convert to edit contribution
                 logger.info(
-                    "File hash already exists for product=%s (hash=%s)",
-                    existing_file_hash.product_id,
+                    "Converting to edit contribution for product=%s (hash=%s)",
+                    existing_product.id,
                     file_hash[:16] + "...",
                 )
-                return Response({
-                    "error": "file_hash_exists",
-                    "message": "A product with this file hash already exists",
-                    "existing_product_id": str(existing_file_hash.product_id),
-                    "existing_product_title": existing_file_hash.product.title if existing_file_hash.product else None,
-                }, status=status.HTTP_400_BAD_REQUEST)
+                contribution_type = "edit_product"
+                product = existing_product
 
         # Check if user can edit directly (bypass moderation)
         can_edit_directly = self._can_edit_directly(request.user, product, contribution_type)
@@ -1085,6 +1103,122 @@ class ContributionViewSet(viewsets.ModelViewSet):
             "message": f"Contribution {action_type}d successfully",
         })
 
+    @action(detail=False, methods=["post"], permission_classes=[CanModerateContribution])
+    def batch_review(self, request):
+        """Approve or reject multiple contributions at once."""
+        serializer = BatchReviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        contribution_ids = serializer.validated_data["contribution_ids"]
+        action_type = serializer.validated_data["action"]
+        review_notes = serializer.validated_data.get("review_notes", "")
+
+        from django.utils import timezone
+
+        contributions = Contribution.objects.filter(
+            id__in=contribution_ids,
+            status=Contribution.ContributionStatus.PENDING,
+        )
+
+        results = {"approved": 0, "rejected": 0, "errors": []}
+
+        for contribution in contributions:
+            try:
+                if action_type == "approve":
+                    if contribution.contribution_type == "new_product":
+                        product = self._create_product_from_data(contribution.data, contribution.user)
+                        contribution.product = product
+                    elif contribution.product:
+                        self._apply_changes_to_product(
+                            contribution.product, contribution.data, contribution.user
+                        )
+                    contribution.status = Contribution.ContributionStatus.APPROVED
+                    if contribution.user:
+                        contribution.user.approved_contribution_count += 1
+                        contribution.user.save(update_fields=["approved_contribution_count"])
+                    results["approved"] += 1
+                else:
+                    contribution.status = Contribution.ContributionStatus.REJECTED
+                    results["rejected"] += 1
+
+                contribution.reviewed_by = request.user
+                contribution.review_notes = review_notes
+                contribution.reviewed_at = timezone.now()
+                contribution.claimed_by = None
+                contribution.claimed_at = None
+                contribution.save()
+
+            except Exception as e:
+                logger.exception("Error in batch review for contribution %s", contribution.id)
+                results["errors"].append({
+                    "id": str(contribution.id),
+                    "error": str(e),
+                })
+
+        return Response(results)
+
+    @action(detail=True, methods=["post"], permission_classes=[CanModerateContribution])
+    def claim(self, request, pk=None):
+        """Claim a contribution for review."""
+        contribution = self.get_object()
+
+        if contribution.status != Contribution.ContributionStatus.PENDING:
+            return Response(
+                {"error": "Only pending contributions can be claimed"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if contribution.is_claimed and contribution.claimed_by != request.user:
+            from datetime import timedelta
+            return Response({
+                "error": "already_claimed",
+                "message": f"This contribution is being reviewed by {contribution.claimed_by.public_name}",
+                "claimed_by": contribution.claimed_by.public_name,
+                "expires_at": (contribution.claimed_at + timedelta(minutes=10)).isoformat(),
+            }, status=status.HTTP_409_CONFLICT)
+
+        contribution.claim(request.user)
+        return Response({"status": "claimed", "expires_in_minutes": 10})
+
+    @action(detail=True, methods=["post"], permission_classes=[CanModerateContribution])
+    def release(self, request, pk=None):
+        """Release a claim on a contribution."""
+        contribution = self.get_object()
+
+        if contribution.claimed_by == request.user:
+            contribution.release_claim()
+
+        return Response({"status": "released"})
+
+    @action(detail=False, methods=["post"], permission_classes=[CanModerateContribution])
+    def claim_batch(self, request):
+        """Claim multiple contributions for batch review."""
+        from datetime import timedelta
+        from django.utils import timezone
+        from django.db.models import Q
+
+        count = request.data.get("count", 20)
+        count = min(int(count), 50)
+
+        expiry_threshold = timezone.now() - timedelta(minutes=Contribution.CLAIM_EXPIRY_MINUTES)
+
+        available = Contribution.objects.filter(
+            status=Contribution.ContributionStatus.PENDING,
+        ).filter(
+            Q(claimed_by__isnull=True) | Q(claimed_at__lt=expiry_threshold)
+        ).order_by("created_at")[:count]
+
+        claimed_ids = []
+        for contribution in available:
+            if contribution.claim(request.user):
+                claimed_ids.append(str(contribution.id))
+
+        return Response({
+            "claimed_count": len(claimed_ids),
+            "contribution_ids": claimed_ids,
+            "expires_in_minutes": 10,
+        })
+
     def _apply_changes_to_product(self, product, changes, user):
         """Apply changes to a product and create revision record."""
         old_values = {}
@@ -1141,6 +1275,20 @@ class ContributionViewSet(viewsets.ModelViewSet):
             slug = f"{base_slug}-{counter}"
             counter += 1
 
+        # Handle author field - normalize to list
+        author_names = []
+        if data.get("author"):
+            author_names = [data["author"]] if isinstance(data["author"], str) else data["author"]
+        if data.get("authors"):
+            author_names.extend(data["authors"] if isinstance(data["authors"], list) else [data["authors"]])
+        
+        # Handle genre field - normalize to list
+        genres = []
+        if data.get("genre"):
+            genres = [data["genre"]] if isinstance(data["genre"], str) else data["genre"]
+        if data.get("genres"):
+            genres.extend(data["genres"] if isinstance(data["genres"], list) else [data["genres"]])
+
         product = Product.objects.create(
             title=title,
             slug=slug,
@@ -1152,6 +1300,9 @@ class ContributionViewSet(viewsets.ModelViewSet):
             dtrpg_url=data.get("dtrpg_url", ""),
             itch_url=data.get("itch_url", ""),
             tags=data.get("tags", []),
+            themes=data.get("themes", []),
+            genres=genres,
+            author_names=author_names,
             publisher_id=data.get("publisher_id"),
             game_system_id=data.get("game_system_id"),
             status=Product.ProductStatus.PUBLISHED,

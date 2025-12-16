@@ -195,6 +195,14 @@ class Product(models.Model):
     itch_id = models.CharField(max_length=100, blank=True)
     itch_url = models.URLField(blank=True)
     other_urls = models.JSONField(default=list, blank=True)
+    
+    # Flexible marketplace URLs with affiliate support
+    # Schema: [{"platform": "dtrpg", "url": "https://..."}, ...]
+    marketplace_urls = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Marketplace URLs: [{platform, url, label?}]. Max 4 entries.",
+    )
 
     level_range_min = models.PositiveIntegerField(null=True, blank=True)
     level_range_max = models.PositiveIntegerField(null=True, blank=True)
@@ -210,6 +218,14 @@ class Product(models.Model):
     tags = models.JSONField(default=list, blank=True)
     themes = models.JSONField(default=list, blank=True)
     content_warnings = models.JSONField(default=list, blank=True)
+    genres = models.JSONField(default=list, blank=True, help_text="Genre tags like ['horror', 'mystery']")
+    
+    # Simple author field for Grimoire contributions (before ProductCredit linking)
+    author_names = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Author names as strings, pending ProductCredit linking",
+    )
 
     cover_url = models.URLField(blank=True)
     thumbnail_url = models.URLField(blank=True)
@@ -483,7 +499,48 @@ class Contribution(models.Model):
     review_notes = models.TextField(blank=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
+    # Concurrency control for moderation
+    claimed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="claimed_contributions",
+    )
+    claimed_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # Claim expiry in minutes
+    CLAIM_EXPIRY_MINUTES = 10
+
+    @property
+    def is_claimed(self) -> bool:
+        """Check if this contribution is currently claimed by someone."""
+        from datetime import timedelta
+        from django.utils import timezone
+        
+        if not self.claimed_by or not self.claimed_at:
+            return False
+        expiry = self.claimed_at + timedelta(minutes=self.CLAIM_EXPIRY_MINUTES)
+        return timezone.now() < expiry
+
+    def claim(self, user) -> bool:
+        """Attempt to claim this contribution for review."""
+        if self.is_claimed and self.claimed_by != user:
+            return False
+        
+        from django.utils import timezone
+        self.claimed_by = user
+        self.claimed_at = timezone.now()
+        self.save(update_fields=["claimed_by", "claimed_at"])
+        return True
+
+    def release_claim(self):
+        """Release the claim on this contribution."""
+        self.claimed_by = None
+        self.claimed_at = None
+        self.save(update_fields=["claimed_by", "claimed_at"])
 
     class Meta:
         ordering = ["-created_at"]

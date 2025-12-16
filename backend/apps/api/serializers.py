@@ -291,6 +291,7 @@ class ContributionSerializer(serializers.ModelSerializer):
 
     user = UserPublicSerializer(read_only=True)
     reviewed_by = UserPublicSerializer(read_only=True)
+    claimed_by = UserPublicSerializer(read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     source_display = serializers.CharField(source="get_source_display", read_only=True)
 
@@ -298,6 +299,7 @@ class ContributionSerializer(serializers.ModelSerializer):
         model = Contribution
         fields = [
             "id",
+            "contribution_type",
             "product",
             "user",
             "data",
@@ -310,6 +312,8 @@ class ContributionSerializer(serializers.ModelSerializer):
             "review_notes",
             "reviewed_at",
             "created_at",
+            "claimed_by",
+            "claimed_at",
         ]
         read_only_fields = [
             "id",
@@ -378,6 +382,18 @@ class ContributionReviewSerializer(serializers.Serializer):
 
     action = serializers.ChoiceField(choices=["approve", "reject"])
     review_notes = serializers.CharField(max_length=1000, required=False, allow_blank=True)
+
+
+class BatchReviewSerializer(serializers.Serializer):
+    """Serializer for batch reviewing multiple contributions."""
+
+    contribution_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        min_length=1,
+        max_length=100,
+    )
+    action = serializers.ChoiceField(choices=["approve", "reject"])
+    review_notes = serializers.CharField(max_length=1000, required=False, allow_blank=True, default="")
 
 
 class FileHashCreateSerializer(serializers.ModelSerializer):
