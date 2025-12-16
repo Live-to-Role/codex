@@ -59,6 +59,8 @@ export interface GameSystem {
   edition?: string;
   parent_system?: GameSystem;
   year_released?: number;
+  logo_url?: string;
+  website_url?: string;
   product_count?: number;
   created_at?: string;
   updated_at?: string;

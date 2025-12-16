@@ -104,6 +104,8 @@ class GameSystemListSerializer(serializers.ModelSerializer):
             "slug",
             "edition",
             "publisher_name",
+            "logo_url",
+            "website_url",
             "product_count",
         ]
 
@@ -125,6 +127,8 @@ class GameSystemDetailSerializer(serializers.ModelSerializer):
             "edition",
             "parent_system",
             "year_released",
+            "logo_url",
+            "website_url",
             "created_at",
             "updated_at",
         ]

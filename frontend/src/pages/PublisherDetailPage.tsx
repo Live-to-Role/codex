@@ -1,10 +1,21 @@
+import { useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Users, ExternalLink, BookOpen, ChevronRight, BadgeCheck, Loader2 } from "lucide-react";
+import { Users, ExternalLink, BookOpen, ChevronRight, ChevronDown, BadgeCheck, Loader2 } from "lucide-react";
 import { getPublisher, getPublisherProducts } from "@/api/publishers";
+import type { Product } from "@/types";
+
+interface GameSystemGroup {
+  id: string | null;
+  name: string;
+  slug: string | null;
+  logo_url?: string;
+  products: Product[];
+}
 
 export function PublisherDetailPage() {
   const { slug } = useParams<{ slug: string }>();
+  const [expandedSystems, setExpandedSystems] = useState<Set<string | null>>(new Set());
 
   const { data: publisher, isLoading } = useQuery({
     queryKey: ["publisher", slug],
@@ -17,6 +28,55 @@ export function PublisherDetailPage() {
     queryFn: () => getPublisherProducts(slug!),
     enabled: !!slug,
   });
+
+  // Group products by game system
+  const groupedProducts = useMemo(() => {
+    if (!products) return [];
+    
+    const groups = new Map<string | null, GameSystemGroup>();
+    
+    for (const product of products) {
+      const systemId = product.game_system?.id ?? null;
+      
+      if (!groups.has(systemId)) {
+        groups.set(systemId, {
+          id: systemId,
+          name: product.game_system?.name ?? "System Neutral",
+          slug: product.game_system?.slug ?? null,
+          logo_url: product.game_system?.logo_url,
+          products: [],
+        });
+      }
+      
+      groups.get(systemId)!.products.push(product);
+    }
+    
+    // Sort groups: named systems first (alphabetically), then "System Neutral" last
+    return Array.from(groups.values()).sort((a, b) => {
+      if (a.id === null) return 1;
+      if (b.id === null) return -1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [products]);
+
+  // Initialize all systems as expanded on first load
+  useMemo(() => {
+    if (groupedProducts.length > 0 && expandedSystems.size === 0) {
+      setExpandedSystems(new Set(groupedProducts.map(g => g.id)));
+    }
+  }, [groupedProducts, expandedSystems.size]);
+
+  const toggleSystem = (systemId: string | null) => {
+    setExpandedSystems(prev => {
+      const next = new Set(prev);
+      if (next.has(systemId)) {
+        next.delete(systemId);
+      } else {
+        next.add(systemId);
+      }
+      return next;
+    });
+  };
 
   if (isLoading) {
     return (
@@ -79,22 +139,97 @@ export function PublisherDetailPage() {
       </div>
 
       <div>
-        <h2 className="font-display text-xl font-semibold text-codex-ink mb-4 tracking-wide">Products ({products?.length || 0})</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {products?.map((product) => (
-            <Link key={product.id} to={`/products/${product.slug}`} className="card overflow-hidden hover:border-codex-olive/50 transition-colors group">
-              <div className="aspect-[3/4] bg-codex-tan">
-                {product.thumbnail_url || product.cover_url ? (
-                  <img src={product.thumbnail_url || product.cover_url} alt={product.title} className="w-full h-full object-cover" loading="lazy" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center"><BookOpen className="w-8 h-8 text-codex-brown/30" /></div>
+        <h2 className="font-display text-xl font-semibold text-codex-ink mb-4 tracking-wide">
+          Products ({products?.length || 0})
+        </h2>
+        
+        <div className="space-y-4">
+          {groupedProducts.map((group) => {
+            const isExpanded = expandedSystems.has(group.id);
+            
+            return (
+              <div key={group.id ?? "system-neutral"} className="card overflow-hidden">
+                {/* Accordion Header */}
+                <button
+                  onClick={() => toggleSystem(group.id)}
+                  className="w-full flex items-center gap-3 p-4 hover:bg-codex-tan/50 transition-colors text-left"
+                >
+                  {isExpanded ? (
+                    <ChevronDown className="w-5 h-5 text-codex-brown/60 flex-shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-5 h-5 text-codex-brown/60 flex-shrink-0" />
+                  )}
+                  
+                  {group.logo_url ? (
+                    <img 
+                      src={group.logo_url} 
+                      alt={group.name} 
+                      className="w-8 h-8 object-contain flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 bg-codex-tan rounded flex items-center justify-center flex-shrink-0">
+                      <BookOpen className="w-4 h-4 text-codex-brown/40" />
+                    </div>
+                  )}
+                  
+                  <div className="flex-1 min-w-0">
+                    {group.slug ? (
+                      <Link 
+                        to={`/systems/${group.slug}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="font-display font-semibold text-codex-ink hover:text-codex-olive"
+                      >
+                        {group.name}
+                      </Link>
+                    ) : (
+                      <span className="font-display font-semibold text-codex-ink">
+                        {group.name}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <span className="text-sm text-codex-brown/60 flex-shrink-0">
+                    {group.products.length} {group.products.length === 1 ? "product" : "products"}
+                  </span>
+                </button>
+                
+                {/* Accordion Content */}
+                {isExpanded && (
+                  <div className="border-t border-codex-brown/10 p-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                      {group.products.map((product) => (
+                        <Link 
+                          key={product.id} 
+                          to={`/products/${product.slug}`} 
+                          className="card overflow-hidden hover:border-codex-olive/50 transition-colors group"
+                        >
+                          <div className="aspect-[3/4] bg-codex-tan">
+                            {product.thumbnail_url || product.cover_url ? (
+                              <img 
+                                src={product.thumbnail_url || product.cover_url} 
+                                alt={product.title} 
+                                className="w-full h-full object-cover" 
+                                loading="lazy" 
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <BookOpen className="w-8 h-8 text-codex-brown/30" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="p-2">
+                            <h3 className="text-sm font-medium text-codex-ink line-clamp-2 group-hover:text-codex-olive">
+                              {product.title}
+                            </h3>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
-              <div className="p-2">
-                <h3 className="text-sm font-medium text-codex-ink line-clamp-2 group-hover:text-codex-olive">{product.title}</h3>
-              </div>
-            </Link>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
