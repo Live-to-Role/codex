@@ -83,4 +83,4 @@ Create `public/_redirects` for SPA routing:
 
 The frontend connects to the Codex Django API. By default, it proxies `/api` requests to `http://localhost:8000` during development.
 
-For production, set `VITE_API_URL` to your deployed API URL (e.g., `https://api.codex.livetorole.com`).
+For production, set `VITE_API_URL` to your deployed API URL (e.g., `https://codex-api.livetorole.com`).

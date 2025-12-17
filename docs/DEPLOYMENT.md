@@ -32,7 +32,7 @@ In Railway dashboard → your service → **Variables**, add:
 ```
 SECRET_KEY=<generate-a-secure-random-key>
 DEBUG=False
-ALLOWED_HOSTS=your-app.up.railway.app,api.codex.livetorole.com
+ALLOWED_HOSTS=your-app.up.railway.app,codex-api.livetorole.com
 CORS_ALLOWED_ORIGINS=https://codex.livetorole.com,https://your-netlify-app.netlify.app
 DJANGO_LOG_LEVEL=INFO
 ```
@@ -118,7 +118,7 @@ SECURE_HSTS_SECONDS = 31536000
 ### Step 9: Custom Domain (Optional)
 
 1. In Railway → your service → **Settings** → **Domains**
-2. Add custom domain: `api.codex.livetorole.com`
+2. Add custom domain: `codex-api.livetorole.com`
 3. Configure DNS with your registrar (CNAME to Railway)
 
 ---
@@ -129,7 +129,7 @@ SECURE_HSTS_SECONDS = 31536000
 
 Create/update `frontend/.env.production`:
 ```
-VITE_API_BASE_URL=https://api.codex.livetorole.com/v1
+VITE_API_BASE_URL=https://codex-api.livetorole.com/api/v1
 VITE_DTRPG_AFFILIATE_ID=your-affiliate-id
 VITE_ENV=production
 ```
@@ -168,7 +168,7 @@ Your `netlify.toml` should include:
 
 ## Post-Deployment Checklist
 
-- [ ] Backend health check: `https://api.codex.livetorole.com/v1/health`
+- [ ] Backend health check: `https://codex-api.livetorole.com/api/v1/health`
 - [ ] Frontend loads correctly
 - [ ] API calls work (check browser console)
 - [ ] User registration/login works
@@ -204,13 +204,13 @@ Your `netlify.toml` should include:
 |----------|-------------|---------|
 | `SECRET_KEY` | Django secret key | `abc123...` |
 | `DEBUG` | Debug mode | `False` |
-| `ALLOWED_HOSTS` | Comma-separated hosts | `api.codex.livetorole.com` |
+| `ALLOWED_HOSTS` | Comma-separated hosts | `codex-api.livetorole.com` |
 | `CORS_ALLOWED_ORIGINS` | Frontend URLs | `https://codex.livetorole.com` |
 | `DATABASE_URL` | PostgreSQL URL (auto-set by Railway) | `postgresql://...` |
 
 ### Frontend (Netlify)
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `VITE_API_BASE_URL` | Backend API URL | `https://api.codex.livetorole.com/v1` |
+| `VITE_API_BASE_URL` | Backend API URL | `https://codex-api.livetorole.com/api/v1` |
 | `VITE_DTRPG_AFFILIATE_ID` | DriveThruRPG affiliate ID | `12345` |
 | `VITE_ENV` | Environment name | `production` |
