@@ -1225,10 +1225,14 @@ class ContributionViewSet(viewsets.ModelViewSet):
         old_values = {}
         new_values = {}
 
+        # Simple fields that can be directly assigned
         editable_fields = [
             "title", "description", "product_type", "page_count",
-            "level_range_min", "level_range_max", "dtrpg_url",
-            "itch_url", "tags"
+            "level_range_min", "level_range_max", "dtrpg_url", "itch_url",
+            "party_size_min", "party_size_max", "estimated_runtime",
+            "setting", "format", "isbn", "msrp",
+            "tags", "themes", "content_warnings", "genres",
+            "cover_url", "thumbnail_url",
         ]
 
         for field in editable_fields:
@@ -1236,6 +1240,71 @@ class ContributionViewSet(viewsets.ModelViewSet):
                 old_values[field] = getattr(product, field, None)
                 setattr(product, field, changes[field])
                 new_values[field] = changes[field]
+
+        # Handle author/authors - normalize to author_names list
+        if "author" in changes or "authors" in changes:
+            old_values["author_names"] = product.author_names
+            author_names = []
+            if changes.get("author"):
+                val = changes["author"]
+                author_names = [val] if isinstance(val, str) else val
+            if changes.get("authors"):
+                val = changes["authors"]
+                author_names.extend(val if isinstance(val, list) else [val])
+            product.author_names = author_names
+            new_values["author_names"] = author_names
+
+        # Handle genre/genres - normalize to genres list
+        if "genre" in changes or "genres" in changes:
+            old_values["genres"] = product.genres
+            genres = []
+            if changes.get("genre"):
+                val = changes["genre"]
+                genres = [val] if isinstance(val, str) else val
+            if changes.get("genres"):
+                val = changes["genres"]
+                genres.extend(val if isinstance(val, list) else [val])
+            product.genres = genres
+            new_values["genres"] = genres
+
+        # Handle publication_date / publication_year
+        if "publication_date" in changes or "publication_year" in changes:
+            from datetime import date
+            old_values["publication_date"] = product.publication_date
+            pub_date = None
+            if changes.get("publication_date"):
+                try:
+                    pub_date = date.fromisoformat(changes["publication_date"])
+                except (ValueError, TypeError):
+                    pass
+            elif changes.get("publication_year"):
+                try:
+                    pub_date = date(int(changes["publication_year"]), 1, 1)
+                except (ValueError, TypeError):
+                    pass
+            product.publication_date = pub_date
+            new_values["publication_date"] = pub_date
+
+        # Handle series - resolve name to ProductSeries
+        if "series" in changes:
+            old_values["series"] = str(product.series_id) if product.series_id else None
+            series_name = changes.get("series", "").strip() if changes.get("series") else ""
+            if series_name:
+                series_instance, _ = ProductSeries.objects.get_or_create(
+                    name__iexact=series_name,
+                    defaults={"name": series_name, "created_by": user}
+                )
+                product.series = series_instance
+            else:
+                product.series = None
+            new_values["series"] = series_name
+
+        # Handle series_order
+        if "series_order" in changes:
+            old_values["series_order"] = product.series_order
+            val = changes.get("series_order")
+            product.series_order = int(val) if val and str(val).isdigit() else None
+            new_values["series_order"] = product.series_order
 
         # Handle foreign key fields
         if "publisher_id" in changes:
@@ -1291,19 +1360,48 @@ class ContributionViewSet(viewsets.ModelViewSet):
             genres.extend(data["genres"] if isinstance(data["genres"], list) else [data["genres"]])
         
         # Handle cover image upload
-        cover_url = ""
-        thumbnail_url = ""
+        cover_url = data.get("cover_url", "")
+        thumbnail_url = data.get("thumbnail_url", "")
         if data.get("cover_image_base64"):
-            cover_url = upload_base64_image(
+            uploaded_cover = upload_base64_image(
                 data["cover_image_base64"],
                 folder="covers",
                 filename_prefix=slug
-            ) or ""
-            if cover_url:
+            )
+            if uploaded_cover:
+                cover_url = uploaded_cover
                 thumbnail_url = generate_thumbnail(
                     data["cover_image_base64"],
                     max_size=(300, 400)
                 ) or ""
+
+        # Handle series - resolve name to ProductSeries or create new
+        series_instance = None
+        if data.get("series"):
+            series_name = data["series"].strip()
+            if series_name:
+                series_instance, _ = ProductSeries.objects.get_or_create(
+                    name__iexact=series_name,
+                    defaults={
+                        "name": series_name,
+                        "created_by": user,
+                    }
+                )
+
+        # Handle publication_date - convert year to date if needed
+        publication_date = None
+        if data.get("publication_date"):
+            from datetime import date
+            try:
+                publication_date = date.fromisoformat(data["publication_date"])
+            except (ValueError, TypeError):
+                pass
+        elif data.get("publication_year"):
+            from datetime import date
+            try:
+                publication_date = date(int(data["publication_year"]), 1, 1)
+            except (ValueError, TypeError):
+                pass
 
         product = Product.objects.create(
             title=title,
@@ -1313,14 +1411,25 @@ class ContributionViewSet(viewsets.ModelViewSet):
             page_count=data.get("page_count"),
             level_range_min=data.get("level_range_min"),
             level_range_max=data.get("level_range_max"),
+            party_size_min=data.get("party_size_min"),
+            party_size_max=data.get("party_size_max"),
+            estimated_runtime=data.get("estimated_runtime", ""),
             dtrpg_url=data.get("dtrpg_url", ""),
             itch_url=data.get("itch_url", ""),
             cover_url=cover_url,
             thumbnail_url=thumbnail_url,
             tags=data.get("tags", []),
             themes=data.get("themes", []),
+            content_warnings=data.get("content_warnings", []),
             genres=genres,
             author_names=author_names,
+            setting=data.get("setting", ""),
+            format=data.get("format", "pdf"),
+            isbn=data.get("isbn", ""),
+            msrp=data.get("msrp"),
+            publication_date=publication_date,
+            series=series_instance,
+            series_order=int(data["series_order"]) if data.get("series_order") and str(data["series_order"]).isdigit() else None,
             publisher_id=data.get("publisher_id"),
             game_system_id=data.get("game_system_id"),
             status=ProductStatus.PUBLISHED,

@@ -42,6 +42,9 @@ ALLOWED_PRODUCT_FIELDS = {
     "authors",  # Alternative: list of author names
     "genre",  # Genre as string or list
     "genres",  # Alternative: list of genres
+    # Series fields
+    "series",  # Series name as string (will be resolved/created)
+    "series_order",  # Order within series (e.g., "A1", "REF4" or integer)
 }
 
 # Valid product types (must match ProductType choices)
@@ -121,6 +124,8 @@ def _validate_field(field: str, value):
         "game_system": 255,  # Grimoire sends game system name as string
         "author": 500,  # Grimoire sends author name(s) as string
         "genre": 255,  # Grimoire sends genre as string
+        "series": 255,  # Series name as string
+        "series_order": 20,  # Order within series (e.g., "A1", "REF4")
     }
     
     if field in string_fields:
