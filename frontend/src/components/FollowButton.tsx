@@ -5,6 +5,7 @@ import { UserPlus, UserMinus, Loader2 } from "lucide-react";
 interface FollowButtonProps {
   targetType: "user" | "publisher" | "author";
   targetId: string;
+  targetSlug?: string;
   initialFollowing?: boolean;
   initialCount?: number;
   onFollowChange?: (isFollowing: boolean, count: number) => void;
@@ -16,6 +17,7 @@ interface FollowButtonProps {
 export function FollowButton({
   targetType,
   targetId,
+  targetSlug,
   initialFollowing = false,
   initialCount = 0,
   onFollowChange,
@@ -27,10 +29,15 @@ export function FollowButton({
   const [followerCount, setFollowerCount] = useState(initialCount);
   const queryClient = useQueryClient();
 
+  // Use slug for publishers/authors (backend uses slug lookup), id for users
+  const lookupValue = (targetType === "publisher" || targetType === "author") && targetSlug 
+    ? targetSlug 
+    : targetId;
+
   const followMutation = useMutation({
     mutationFn: async () => {
       const response = await fetch(
-        `/api/${targetType}s/${targetId}/follow/`,
+        `/api/${targetType}s/${lookupValue}/follow/`,
         {
           method: "POST",
           headers: {
@@ -66,7 +73,7 @@ export function FollowButton({
   const unfollowMutation = useMutation({
     mutationFn: async () => {
       const response = await fetch(
-        `/api/${targetType}s/${targetId}/follow/`,
+        `/api/${targetType}s/${lookupValue}/follow/`,
         {
           method: "DELETE",
           headers: {

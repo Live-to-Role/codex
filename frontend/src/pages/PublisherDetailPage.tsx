@@ -129,6 +129,7 @@ export function PublisherDetailPage() {
                 <FollowButton
                   targetType="publisher"
                   targetId={publisher.id}
+                  targetSlug={publisher.slug}
                   initialFollowing={publisher.is_following}
                   initialCount={publisher.follower_count}
                   size="md"

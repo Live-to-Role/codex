@@ -75,6 +75,7 @@ export function AuthorDetailPage() {
               <FollowButton
                 targetType="author"
                 targetId={author.id}
+                targetSlug={author.slug}
                 initialFollowing={author.is_following}
                 initialCount={author.follower_count}
                 size="sm"
