@@ -4,6 +4,7 @@ import uuid
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
@@ -34,6 +35,10 @@ class User(AbstractUser):
     last_contribution_ip = models.GenericIPAddressField(null=True, blank=True)
     avg_daily_contributions = models.FloatField(null=True, blank=True)
 
+    # Follow counts
+    follower_count = models.PositiveIntegerField(default=0)
+    following_count = models.PositiveIntegerField(default=0)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -44,6 +49,11 @@ class User(AbstractUser):
         verbose_name = "user"
         verbose_name_plural = "users"
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["-created_at"]),
+            models.Index(fields=["follower_count"]),
+            models.Index(fields=["following_count"]),
+        ]
 
     def __str__(self):
         return self.display_name or self.email
@@ -52,6 +62,60 @@ class User(AbstractUser):
     def public_name(self):
         """Return the name to display publicly."""
         return self.display_name or self.username or self.email.split("@")[0]
+
+
+class UserFollow(models.Model):
+    """Follow relationship between users."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    follower = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="following",
+    )
+    followed = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="followers",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ["follower", "followed"]
+        verbose_name = "user follow"
+        verbose_name_plural = "user follows"
+        indexes = [
+            models.Index(fields=["follower", "created_at"]),
+            models.Index(fields=["followed", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.follower} follows {self.followed}"
+
+    def clean(self):
+        if self.follower == self.followed:
+            raise ValidationError("Users cannot follow themselves.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+        
+        # Update follower counts
+        self.followed.follower_count = self.followed.followers.count()
+        self.followed.save(update_fields=["follower_count"])
+        self.follower.following_count = self.follower.following.count()
+        self.follower.save(update_fields=["following_count"])
+
+    def delete(self, *args, **kwargs):
+        follower = self.follower
+        followed = self.followed
+        super().delete(*args, **kwargs)
+        
+        # Update follower counts
+        followed.follower_count = followed.followers.count()
+        followed.save(update_fields=["follower_count"])
+        follower.following_count = follower.following.count()
+        follower.save(update_fields=["following_count"])
 
 
 class HashedAPIToken(models.Model):

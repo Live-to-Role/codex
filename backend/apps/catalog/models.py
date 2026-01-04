@@ -18,6 +18,7 @@ class Publisher(models.Model):
     logo_url = models.URLField(blank=True)
 
     is_verified = models.BooleanField(default=False)
+    follower_count = models.PositiveIntegerField(default=0)
 
     representatives = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
@@ -58,6 +59,7 @@ class Author(models.Model):
     slug = models.SlugField(max_length=255, unique=True, blank=True)
     bio = models.TextField(blank=True)
     website = models.URLField(blank=True)
+    follower_count = models.PositiveIntegerField(default=0)
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -930,3 +932,91 @@ class NoteFlag(models.Model):
 
     def __str__(self):
         return f"Flag on {self.note.title} - {self.get_reason_display()}"
+
+
+class PublisherFollow(models.Model):
+    """Follow relationship between user and publisher."""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="publisher_follows",
+    )
+    publisher = models.ForeignKey(
+        Publisher,
+        on_delete=models.CASCADE,
+        related_name="followers",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ["user", "publisher"]
+        verbose_name = "publisher follow"
+        verbose_name_plural = "publisher follows"
+        indexes = [
+            models.Index(fields=["user"]),
+            models.Index(fields=["publisher"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user} follows {self.publisher}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        
+        # Update follower count
+        self.publisher.follower_count = self.publisher.followers.count()
+        self.publisher.save(update_fields=["follower_count"])
+
+    def delete(self, *args, **kwargs):
+        publisher = self.publisher
+        super().delete(*args, **kwargs)
+        
+        # Update follower count
+        publisher.follower_count = publisher.followers.count()
+        publisher.save(update_fields=["follower_count"])
+
+
+class AuthorFollow(models.Model):
+    """Follow relationship between user and author."""
+    
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="author_follows",
+    )
+    author = models.ForeignKey(
+        Author,
+        on_delete=models.CASCADE,
+        related_name="followers",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ["user", "author"]
+        verbose_name = "author follow"
+        verbose_name_plural = "author follows"
+        indexes = [
+            models.Index(fields=["user"]),
+            models.Index(fields=["author"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user} follows {self.author}"
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        
+        # Update follower count
+        self.author.follower_count = self.author.followers.count()
+        self.author.save(update_fields=["follower_count"])
+
+    def delete(self, *args, **kwargs):
+        author = self.author
+        super().delete(*args, **kwargs)
+        
+        # Update follower count
+        author.follower_count = author.followers.count()
+        author.save(update_fields=["follower_count"])
