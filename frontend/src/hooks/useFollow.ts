@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
-import { toast } from "sonner";
+import { api } from "../lib/api";
 
 interface FollowResponse {
   is_following: boolean;
@@ -30,10 +29,10 @@ export function useFollow(targetType: "user" | "publisher" | "author") {
         queryKey: [targetType, targetId],
       });
       
-      toast.success(`Following ${targetType}`);
+      // Successfully followed
     },
     onError: () => {
-      toast.error(`Failed to follow ${targetType}`);
+      console.error(`Failed to follow ${targetType}`);
     },
   });
 
@@ -57,10 +56,10 @@ export function useFollow(targetType: "user" | "publisher" | "author") {
         queryKey: [targetType, targetId],
       });
       
-      toast.success(`Unfollowed ${targetType}`);
+      // Successfully unfollowed
     },
     onError: () => {
-      toast.error(`Failed to unfollow ${targetType}`);
+      console.error(`Failed to unfollow ${targetType}`);
     },
   });
 
@@ -110,7 +109,7 @@ export function useFollowing(targetType: "users" | "publishers" | "authors") {
   });
 }
 
-export function useFollowers(targetType: "users") {
+export function useFollowers(_targetType: "users") {
   return useQuery({
     queryKey: ["me", "followers"],
     queryFn: async () => {

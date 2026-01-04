@@ -1,7 +1,6 @@
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserPlus, UserMinus, Loader2 } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
 
 interface FollowButtonProps {
   targetType: "user" | "publisher" | "author";
@@ -60,7 +59,7 @@ export function FollowButton({
       });
     },
     onError: () => {
-      toast.error("Failed to follow");
+      console.error("Failed to follow");
     },
   });
 
@@ -96,7 +95,7 @@ export function FollowButton({
       });
     },
     onError: () => {
-      toast.error("Failed to unfollow");
+      console.error("Failed to unfollow");
     },
   });
 

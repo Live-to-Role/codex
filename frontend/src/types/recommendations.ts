@@ -1,3 +1,5 @@
+import { Product } from "./index";
+
 export interface ScoredProduct {
   product: Product;
   score: number;
@@ -33,7 +35,7 @@ export interface ForYouRecommendations {
 export interface RecommendationSection {
   title: string;
   type: "collaborative" | "content_based" | "from_following" | "follow_ups" | "trending" | "new_releases";
-  products: ScoredProduct[];
+  products: (ScoredProduct | Product)[];
   seeAllLink?: string;
 }
 

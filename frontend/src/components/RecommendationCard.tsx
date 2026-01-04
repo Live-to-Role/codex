@@ -17,7 +17,6 @@ interface RecommendationCardProps {
 
 export function RecommendationCard({
   product,
-  score,
   reason,
   source,
   showAttribution = true,
@@ -47,11 +46,11 @@ export function RecommendationCard({
         </h3>
         
         <div className="mt-1 flex items-center gap-2 text-sm text-gray-500">
-          {product.publisher && <span>{product.publisher}</span>}
+          {product.publisher && <span>{typeof product.publisher === 'string' ? product.publisher : product.publisher.name}</span>}
           {product.game_system && (
             <>
               <span>•</span>
-              <span>{product.game_system}</span>
+              <span>{typeof product.game_system === 'string' ? product.game_system : product.game_system.name}</span>
             </>
           )}
         </div>

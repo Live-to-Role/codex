@@ -1,9 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
-import { X, UserPlus } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { X } from "lucide-react";
 import { FollowButton } from "./FollowButton";
-import { api } from "@/lib/api";
+import { api } from "../lib/api";
 
 interface SuggestedUser {
   id: string;
@@ -17,7 +16,7 @@ interface SuggestedUser {
 export function SuggestedFollows() {
   const [dismissed, setDismissed] = useState<string[]>([]);
   
-  const { data: suggestions, isLoading } = useQuery({
+  const { data: suggestions } = useQuery({
     queryKey: ["recommendations", "suggested-follows"],
     queryFn: async () => {
       const response = await api.get("/recommendations/suggested-follows/");
@@ -28,7 +27,6 @@ export function SuggestedFollows() {
 
   const handleDismiss = (userId: string) => {
     setDismissed((prev) => [...prev, userId]);
-    toast.success("Suggestion dismissed");
   };
 
   const visibleSuggestions = suggestions?.filter(
