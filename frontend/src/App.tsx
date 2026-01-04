@@ -3,7 +3,6 @@ import { Routes, Route } from "react-router-dom";
 import { Layout } from "./components/layout/Layout";
 import { HomePage } from "./pages/HomePage";
 import { ProductsPage } from "./pages/ProductsPage";
-import { ProductDetailPage } from "./pages/ProductDetailPage";
 import { PublishersPage } from "./pages/PublishersPage";
 import { PublisherDetailPage } from "./pages/PublisherDetailPage";
 import { SystemsPage } from "./pages/SystemsPage";
@@ -26,6 +25,9 @@ import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { MyRunsPage } from "./pages/MyRunsPage";
+import { DiscoverPage } from "./pages/DiscoverPage";
+import { UserProfilePage } from "./pages/UserProfilePage";
+import { ProductDetailPageWithRecommendations } from "./pages/ProductDetailPageWithRecommendations";
 
 export default function App() {
   return (
@@ -34,7 +36,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/products" element={<ProductsPage />} />
         <Route path="/products/new" element={<ProductCreatePage />} />
-        <Route path="/products/:slug" element={<ProductDetailPage />} />
+        <Route path="/products/:slug" element={<ProductDetailPageWithRecommendations />} />
         <Route path="/products/:slug/edit" element={<ProductEditPage />} />
         <Route path="/contribution/success" element={<ContributionSuccessPage />} />
         <Route path="/publishers" element={<PublishersPage />} />
@@ -55,6 +57,8 @@ export default function App() {
         <Route path="/series/:slug" element={<SeriesDetailPage />} />
         <Route path="/dashboard" element={<PublisherDashboardPage />} />
         <Route path="/my-runs" element={<MyRunsPage />} />
+        <Route path="/discover" element={<DiscoverPage />} />
+        <Route path="/users/:username" element={<UserProfilePage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Layout>

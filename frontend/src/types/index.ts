@@ -32,6 +32,8 @@ export interface Publisher {
   founded_year?: number;
   logo_url?: string;
   is_verified: boolean;
+  follower_count?: number;
+  is_following?: boolean;
   product_count?: number;
   created_by?: UserPublic;
   created_at?: string;
@@ -44,6 +46,8 @@ export interface Author {
   slug: string;
   bio?: string;
   website?: string;
+  follower_count?: number;
+  is_following?: boolean;
   created_by?: UserPublic;
   created_at?: string;
   updated_at?: string;

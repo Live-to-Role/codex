@@ -24,14 +24,14 @@ export function RecommendationSection({
     return (
       <div className="py-8">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+          <h2 className="font-display text-xl font-semibold text-codex-ink tracking-wide">{title}</h2>
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="animate-pulse">
-              <div className="aspect-[3/4] w-full rounded-lg bg-gray-200" />
-              <div className="mt-2 h-4 rounded bg-gray-200" />
-              <div className="mt-1 h-3 w-3/4 rounded bg-gray-200" />
+              <div className="aspect-[3/4] w-full rounded-lg bg-codex-tan" />
+              <div className="mt-2 h-4 rounded bg-codex-tan" />
+              <div className="mt-1 h-3 w-3/4 rounded bg-codex-tan" />
             </div>
           ))}
         </div>
@@ -43,7 +43,7 @@ export function RecommendationSection({
     return (
       <div className="py-8">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+          <h2 className="font-display text-xl font-semibold text-codex-ink tracking-wide">{title}</h2>
         </div>
         <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600">
           Failed to load recommendations
@@ -56,9 +56,9 @@ export function RecommendationSection({
     return (
       <div className="py-8">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+          <h2 className="font-display text-xl font-semibold text-codex-ink tracking-wide">{title}</h2>
         </div>
-        <div className="rounded-lg bg-gray-50 p-8 text-center text-gray-500">
+        <div className="rounded-lg bg-codex-tan/30 p-8 text-center text-codex-brown/70">
           {emptyMessage}
         </div>
       </div>
@@ -68,11 +68,11 @@ export function RecommendationSection({
   return (
     <div className="py-8">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+        <h2 className="font-display text-xl font-semibold text-codex-ink tracking-wide">{title}</h2>
         {seeAllLink && (
           <Link
             to={seeAllLink}
-            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+            className="flex items-center gap-1 text-sm text-codex-olive hover:text-codex-dark"
           >
             See all
             <ChevronRight className="h-4 w-4" />

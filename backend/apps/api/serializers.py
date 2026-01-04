@@ -43,6 +43,8 @@ class PublisherDetailSerializer(serializers.ModelSerializer):
     """Serializer for publisher detail views."""
 
     created_by = UserPublicSerializer(read_only=True)
+    follower_count = serializers.IntegerField(read_only=True)
+    is_following = serializers.SerializerMethodField()
 
     class Meta:
         model = Publisher
@@ -55,11 +57,24 @@ class PublisherDetailSerializer(serializers.ModelSerializer):
             "founded_year",
             "logo_url",
             "is_verified",
+            "follower_count",
+            "is_following",
             "created_by",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "slug", "is_verified", "created_at", "updated_at"]
+    
+    def get_is_following(self, obj):
+        """Check if the current user is following this publisher."""
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            from apps.catalog.models import PublisherFollow
+            return PublisherFollow.objects.filter(
+                user=request.user,
+                publisher=obj
+            ).exists()
+        return False
 
 
 class AuthorListSerializer(serializers.ModelSerializer):
@@ -74,6 +89,8 @@ class AuthorDetailSerializer(serializers.ModelSerializer):
     """Serializer for author detail views."""
 
     created_by = UserPublicSerializer(read_only=True)
+    follower_count = serializers.IntegerField(read_only=True)
+    is_following = serializers.SerializerMethodField()
 
     class Meta:
         model = Author
@@ -83,11 +100,24 @@ class AuthorDetailSerializer(serializers.ModelSerializer):
             "slug",
             "bio",
             "website",
+            "follower_count",
+            "is_following",
             "created_by",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "slug", "created_at", "updated_at"]
+    
+    def get_is_following(self, obj):
+        """Check if the current user is following this author."""
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            from apps.catalog.models import AuthorFollow
+            return AuthorFollow.objects.filter(
+                user=request.user,
+                author=obj
+            ).exists()
+        return False
 
 
 class GameSystemListSerializer(serializers.ModelSerializer):

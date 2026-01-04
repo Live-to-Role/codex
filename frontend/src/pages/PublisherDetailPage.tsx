@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Users, ExternalLink, BookOpen, ChevronRight, ChevronDown, BadgeCheck, Loader2 } from "lucide-react";
 import { getPublisher, getPublisherProducts } from "@/api/publishers";
+import { FollowButton } from "@/components/FollowButton";
 import type { Product } from "@/types";
 
 interface GameSystemGroup {
@@ -124,6 +125,16 @@ export function PublisherDetailPage() {
                   Verified Publisher
                 </span>
               )}
+              <div className="ml-auto">
+                <FollowButton
+                  targetType="publisher"
+                  targetId={publisher.id}
+                  initialFollowing={publisher.is_following}
+                  initialCount={publisher.follower_count}
+                  size="md"
+                  variant="outline"
+                />
+              </div>
             </div>
             {publisher.website && (
               <a href={publisher.website} target="_blank" rel="noopener noreferrer" className="text-codex-dark hover:text-codex-olive inline-flex items-center gap-1">

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { User, Globe, BookOpen, ChevronRight, Loader2 } from "lucide-react";
 import { getAuthor, getAuthorCredits, type AuthorCredit } from "@/api/authors";
 import { formatDate } from "@/lib/utils";
+import { FollowButton } from "@/components/FollowButton";
 
 export function AuthorDetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -67,10 +68,18 @@ export function AuthorDetailPage() {
           </div>
           
           <div className="flex-1 min-w-0">
-            <h1 className="font-display text-2xl font-semibold text-codex-ink tracking-wide mb-2">
-              {author.name}
-            </h1>
-            
+            <div className="flex items-start justify-between gap-4 mb-2">
+              <h1 className="font-display text-2xl font-semibold text-codex-ink tracking-wide">
+                {author.name}
+              </h1>
+              <FollowButton
+                targetType="author"
+                targetId={author.id}
+                initialFollowing={author.is_following}
+                initialCount={author.follower_count}
+                size="sm"
+              />
+            </div>
             {author.bio && (
               <p className="text-codex-brown/70 mb-4 leading-relaxed">{author.bio}</p>
             )}

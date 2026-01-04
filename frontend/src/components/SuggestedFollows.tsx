@@ -38,9 +38,9 @@ export function SuggestedFollows() {
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div className="card p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900">Suggested follows</h3>
+        <h3 className="font-semibold text-codex-ink">Suggested follows</h3>
       </div>
       
       <div className="space-y-3">
@@ -55,23 +55,23 @@ export function SuggestedFollows() {
                 `https://api.dicebear.com/7.x/initials/svg?seed=${user.public_name}`
               }
               alt={user.public_name}
-              className="h-10 w-10 rounded-full bg-gray-100"
+              className="h-10 w-10 rounded-full bg-codex-tan"
             />
             
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between">
-                <h4 className="truncate font-medium text-gray-900">
+                <h4 className="truncate font-medium text-codex-ink">
                   {user.public_name}
                 </h4>
                 <button
                   onClick={() => handleDismiss(user.id)}
-                  className="ml-2 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  className="ml-2 rounded p-1 text-codex-brown/40 hover:bg-codex-tan/50 hover:text-codex-brown/70"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
               
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-codex-brown/70">
                 {user.reason === "high_quality_notes"
                   ? `${user.note_upvotes} upvotes on notes`
                   : `${user.shared_products} shared interests`}
@@ -91,7 +91,7 @@ export function SuggestedFollows() {
       </div>
       
       {suggestions && suggestions.length > 5 && (
-        <button className="mt-3 w-full text-center text-sm text-blue-600 hover:text-blue-700">
+        <button className="mt-3 w-full text-center text-sm text-codex-olive hover:text-codex-dark">
           See more suggestions
         </button>
       )}

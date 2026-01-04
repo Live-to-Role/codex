@@ -4,8 +4,12 @@ import { BookOpen, Users, Gamepad2, Search, ArrowRight } from "lucide-react";
 import { getProducts } from "@/api/products";
 import { getPublishers } from "@/api/publishers";
 import { getSystems } from "@/api/systems";
+import { useAuth } from "@/contexts/AuthContext";
+import { HomePageRecommendations } from "@/components/HomePageRecommendations";
 
 export function HomePage() {
+  const { user } = useAuth();
+  
   const { data: productsData } = useQuery({
     queryKey: ["products", { page: 1 }],
     queryFn: () => getProducts({ page: 1 }),
@@ -100,6 +104,13 @@ export function HomePage() {
               );
             })}
           </div>
+        </div>
+      </section>
+
+      {/* Personalized Recommendations */}
+      <section className="py-16 bg-codex-cream">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <HomePageRecommendations isAuthenticated={!!user} />
         </div>
       </section>
 

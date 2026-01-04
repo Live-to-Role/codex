@@ -119,11 +119,11 @@ export function FollowButton({
   // Variant classes
   const variantClasses = {
     default: isFollowing
-      ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
-      : "bg-blue-600 text-white hover:bg-blue-700",
+      ? "bg-codex-tan text-codex-brown hover:bg-codex-tan/80"
+      : "bg-codex-olive text-white hover:bg-codex-dark",
     outline: isFollowing
-      ? "border-gray-300 text-gray-700 hover:bg-gray-50"
-      : "border-blue-600 text-blue-600 hover:bg-blue-50",
+      ? "border-codex-brown/30 text-codex-brown hover:bg-codex-tan/50"
+      : "border-codex-olive text-codex-olive hover:bg-codex-olive/10",
   };
 
   return (
@@ -132,7 +132,7 @@ export function FollowButton({
       disabled={isLoading}
       className={`
         inline-flex items-center gap-2 rounded-md font-medium transition-colors
-        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+        focus:outline-none focus:ring-2 focus:ring-codex-olive focus:ring-offset-2
         disabled:opacity-50 disabled:cursor-not-allowed
         ${sizeClasses[size]}
         ${variant === "outline" ? "border" : ""}
